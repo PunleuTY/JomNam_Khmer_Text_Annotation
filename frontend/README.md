@@ -131,6 +131,15 @@ export const HomePage = () => {
   );
 };
 ```
+```punleu.js
+nvm install 20
+nvm use 20
+npm install -D @tailwindcss/vite
+rm -rf node_modules package-lock.json .vite-temp
+npm install
+npm run dev
 
+# will be removed after everything is finish
+```
 
 **Ready to start building?** The frontend is fully configured - just run `npm run dev` and start creating amazing user interfaces! 🚀

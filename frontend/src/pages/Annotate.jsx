@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {  
+import {
   ImagePlus,
   Settings,
   ChevronLeft,
@@ -21,6 +21,7 @@ import {
   Download,
   Undo,
   VectorSquare,
+  GalleryVerticalEnd,
   Redo,
 } from "lucide-react";
 
@@ -34,6 +35,9 @@ import { ExportDialog } from "@/components/export-dialog";
 import { uploadImages, saveGroundTruth } from "@/server/sendImageAPI";
 import { ImageUploader } from "@/components/image-uploader";
 import { getImageByProjectAPI } from "@/server/saveResultAPI";
+import { useShortcuts } from "../lib/userShortcuts.js";
+import { GalleryView } from "@/components/GalleryView";
+
 
 // --- CONSTANTS ---
 const HISTORY_LIMIT = 100;
@@ -61,6 +65,7 @@ const Annotate = () => {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const historyIndexRef = useRef(-1);
+  const historyRef = useRef([]);
   const [fullOcr, setFullOcr] = useState({ text: "", conf: null });
   const [ocrLoading, setOcrLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -75,6 +80,7 @@ const Annotate = () => {
   const CurrentProjectContext = id;
 
   const currentImage = images.find((i) => i.id === currentId);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   // --- Load Project if Exists ---
   useEffect(() => {
@@ -337,24 +343,41 @@ const Annotate = () => {
     },
     [historyIndex]
   );
-
   const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      const previousState = history[historyIndex - 1];
-      setAnnotations(previousState.annotations);
-      setFullOcr(previousState.textAnnotations);
-      setHistoryIndex((prev) => prev - 1);
+    const prevIndex = Math.max(historyIndexRef.current - 1, 0);
+    const state = historyRef.current[prevIndex];
+    if (state) {
+      setAnnotations(state.annotations);
+      setFullOcr(state.textAnnotations);
+      setHistoryIndex(prevIndex);
     }
-  }, [history, historyIndex]);
+  }, []);
 
   const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const nextState = history[historyIndex + 1];
-      setAnnotations(nextState.annotations);
-      setFullOcr(nextState.textAnnotations);
-      setHistoryIndex((prev) => prev + 1);
+    const nextIndex = Math.min(historyIndexRef.current + 1, historyRef.current.length - 1);
+    const state = historyRef.current[nextIndex];
+    if (state) {
+      setAnnotations(state.annotations);
+      setFullOcr(state.textAnnotations);
+      setHistoryIndex(nextIndex);
     }
-  }, [history, historyIndex]);
+  }, []);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
+
+  useEffect(() => {
+    if (historyIndex >= 0 && historyIndex < history.length) {
+      const state = history[historyIndex];
+      setAnnotations(state.annotations);
+      setFullOcr(state.textAnnotations);
+    }
+  }, [historyIndex, history]);
 
   function Loader({ text }) {
     return (
@@ -364,6 +387,31 @@ const Annotate = () => {
       </div>
     );
   }
+  // --- Keyboard Shortcuts Integration ---
+  const handleExportProject = () => {
+    setExportOpen(true);
+  };
+
+  useShortcuts({
+    onBoxMode: () => setMode("box"),
+    onPolygonMode: () => setMode("polygon"),
+    onPrevImage: prevImage,
+    onNextImage: nextImage,
+    onGotoVisual: () => setActiveTab("annotation"),
+    onGotoJson: () => setActiveTab("json"),
+    onDeleteLast: () => {
+      const anns = annotations[currentId] || [];
+      if (anns.length > 0) {
+        const last = anns[anns.length - 1];
+        deleteAnnotation(last.id);
+      }
+    },
+    onGallery: () => setGalleryOpen(true),
+    onUndo: undo,
+    onRedo: redo,
+    onRunOCR: runOcr,
+    onExportProject: handleExportProject,
+  });
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -400,7 +448,7 @@ const Annotate = () => {
               )}
               {/* <input
                 type="file"
-                multiple
+                multiple  q
                 // onChange={(e) => handleFiles(Array.from(e.target.files))}
                 onChange={handleFiles}
               /> */}
@@ -416,11 +464,10 @@ const Annotate = () => {
                   {images.map((img, idx) => (
                     <button
                       key={img.id}
-                      className={`w-full text-left p-2 text-sm hover:bg-blue-50 ${
-                        img.id === currentId
-                          ? "bg-blue-50 border-l-4 border-[#12284c]"
-                          : ""
-                      }`}
+                      className={`w-full text-left p-2 text-sm hover:bg-blue-50 ${img.id === currentId
+                        ? "bg-blue-50 border-l-4 border-[#12284c]"
+                        : ""
+                        }`}
                       onClick={() => setCurrentId(img.id)}
                     >
                       <div className="font-medium text-gray-900 truncate">
@@ -432,6 +479,94 @@ const Annotate = () => {
                     </button>
                   ))}
                 </div>
+
+                {/* Keyboard Shortcuts */}
+                <div className="mt-6">
+                  <Card className="bg-[#f5fdf5] rounded-2xl shadow-sm border border-[#d0e9d0]">
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <span className="text-lg">⌨️</span> Keyboard Shortcuts
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-gray-800 space-y-4">
+                      {/* Annotation */}
+                      <div>
+                        <h4 className="font-semibold text-gray-500 text-xs mb-1">ANNOTATION</h4>
+                        <div className="flex justify-between items-center mb-1">
+                          <span>Box</span>
+                          <kbd className="kbd-style">1</kbd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Polygon</span>
+                          <kbd className="kbd-style">2</kbd>
+                        </div>
+                      </div>
+
+                      {/* Navigation */}
+                      <div>
+                        <h4 className="font-semibold text-gray-500 text-xs mb-1 mt-2">NAVIGATION</h4>
+                        <div className="flex justify-between items-center mb-1">
+                          <span>Gallery</span>
+                          <kbd className="kbd-style">G</kbd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Prev / Next image</span>
+                          <div className="flex gap-1">
+                            <kbd className="kbd-style">←</kbd>
+                            <kbd className="kbd-style">→</kbd>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Edit */}
+                      <div>
+                        <h4 className="font-semibold text-gray-500 text-xs mb-1 mt-2">EDIT</h4>
+                        <div className="flex justify-between items-center mb-1">
+                          <span>Undo</span>
+                          <div className="flex items-center gap-1">
+                            <kbd className="kbd-style">Ctrl</kbd>+
+                            <kbd className="kbd-style">X</kbd>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Redo</span>
+                          <div className="flex items-center gap-1">
+                            <kbd className="kbd-style">Ctrl</kbd>+
+                            <kbd className="kbd-style">Y</kbd>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div>
+                        <h4 className="font-semibold text-gray-500 text-xs mb-1 mt-2">ACTIONS</h4>
+                        <div className="flex justify-between items-center mb-1">
+                          <span>Run OCR</span>
+                          <kbd className="kbd-style">E</kbd>
+                        </div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span>JSON View</span>
+                          <kbd className="kbd-style">J</kbd>
+                        </div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span>Visual View</span>
+                          <kbd className="kbd-style">V</kbd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Export</span>
+                          <div className="flex items-center gap-1">
+                            <kbd className="kbd-style">Ctrl</kbd>+
+                            <kbd className="kbd-style">S</kbd>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-3 italic">
+                        (Shortcuts are disabled when typing in input fields.)
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
                 <div className="flex items-center gap-2 mt-2 justify-center">
                   <Button
                     variant="outline"
@@ -446,9 +581,8 @@ const Annotate = () => {
                   </Button>
                   <span className="text-xs text-gray-600">
                     {images.length > 0
-                      ? `${images.findIndex((i) => i.id === currentId) + 1} / ${
-                          images.length
-                        }`
+                      ? `${images.findIndex((i) => i.id === currentId) + 1} / ${images.length
+                      }`
                       : "0 / 0"}
                   </span>
                   <Button
@@ -458,7 +592,7 @@ const Annotate = () => {
                     disabled={
                       !images.length ||
                       images.findIndex((i) => i.id === currentId) ===
-                        images.length - 1
+                      images.length - 1
                     }
                   >
                     Next <ChevronRight className="w-4 h-4" />
@@ -469,8 +603,10 @@ const Annotate = () => {
           </Card>
         </div>
 
-        {/* Annotation Canvas */}
-        <div className="col-span-1 md:col-span-1 lg:col-span-3">
+        {/* */}
+        {/* Right Column: Canvas + Tabs */}
+        <div className="col-span-1 md:col-span-1 lg:col-span-3 flex flex-col gap-4">
+          {/* Annotation Canvas */}
           <Card className="overflow-hidden bg-white rounded-xl shadow-md border-b-4 border-t-4 border-[#12284c]">
             <CardHeader className="pb-3 flex items-center justify-between">
               <CardTitle className="text-base">Annotation Canvas</CardTitle>
@@ -533,19 +669,10 @@ const Annotate = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={fetchSaveGroundTruth}
-                  disabled={saveLoading}
-                  className={"bg-[#12284c] text-white"}
+                  onClick={() => setGalleryOpen(true)}
+                  className="bg-[#12284c] text-white"
                 >
-                  {saveLoading ? (
-                    <>
-                      SAVING ..
-                    </>
-                  ) : (
-                    <>
-                      Save project
-                    </>
-                  )}
+                  <GalleryVerticalEnd className="w-4 h-4 mr-2" /> Gallery
                 </Button>
                 <Button
                   variant="outline"
@@ -554,14 +681,6 @@ const Annotate = () => {
                 >
                   <Download className="w-4 h-4 mr-2" /> Export
                 </Button>
-                {/* <Button
-                  variant="ghost"
-                  onClick={onClearAll}
-                  disabled={!images.length}
-                  className="bg-[#12284c] text-white"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" /> ClearAll
-                </Button> */}
               </div>
             </CardHeader>
             <CardContent>
@@ -569,21 +688,17 @@ const Annotate = () => {
                 <AnnotationCanvas
                   image={currentImage}
                   mode={mode}
-                  annotations={annotations[currentId] || []}  
+                  annotations={annotations[currentId] || []}
                   onAddAnnotation={addAnnotation}
                   onUpdateAnnotation={updateAnnotation}
                 />
               ) : (
-                <div className="h-[500px] flex items-center justify-center text-gray-500">
-                  canvasEmpty
-                </div>
+                <div className="h-[500px] flex items-center justify-center text-gray-500">canvasEmpty</div>
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Tabs */}
-        <div className="col-span-1 md:col-span-2 lg:col-span-4">
+          {/* Tabs: Annotations + JSON */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="annotation">
@@ -639,7 +754,17 @@ const Annotate = () => {
         onOpenChange={setExportOpen}
         images={images}
         annotations={annotations}
-        projectMeta={{ name: "Khmer Data Annotation Tool", lang }}
+        projectMeta={{ name: "Khmer Text Annotation Tool", lang }}
+      />
+      <GalleryView
+        open={galleryOpen}
+        onOpenChange={setGalleryOpen}
+        images={images}
+        currentId={currentId}
+        onSelect={(id) => {
+          setCurrentId(id)
+          setGalleryOpen(false)
+        }}
       />
       <Footer />
     </div>
@@ -647,74 +772,3 @@ const Annotate = () => {
 };
 
 export default Annotate;
-// --- Upload Handler ---
-// const handleFiles = async (event) => {
-//   const files = Array.from(event.target.files || []); // convert FileList → Array<File>
-
-//   // Wrap files with metadata for UI (id, preview URL, etc.)
-//   const newItems = files.map((file) => ({
-//     id: crypto.randomUUID(), // generate unique id
-//     file, // keep reference to original File
-//     preview: URL.createObjectURL(file), // for image preview
-//   }));
-
-//   // Update state
-//   const updated = [...images, ...newItems];
-//   setImages(updated);
-
-//   // Set first file as current if not set
-//   if (!currentId && updated.length > 0) {
-//     setCurrentId(updated[0].id);
-//   }
-
-//   // Keep raw files for upload
-//   setSelectedFiles(newItems.map((i) => i.file));
-// };
-
-// const handleFiles = async (items) => {
-//   if (!items?.length) return;
-
-//   try {
-//     const filePromises = items.map(
-//       (item) =>
-//         new Promise((resolve, reject) => {
-//           const f = item.file || item;
-//           if (!(f instanceof Blob))
-//             return reject(new Error("Invalid file object"));
-
-//           const reader = new FileReader();
-//           reader.onload = (e) =>
-//             resolve({
-//               localName: f.name,
-//               name: f.name,
-//               url: e.target.result,
-//               width: 726,
-//               height: 158,
-//             });
-//           reader.onerror = reject;
-//           reader.readAsDataURL(f);
-//         })
-//     );
-
-//     const localImages = await Promise.all(filePromises);
-
-//     console.log(items);
-
-//     const data = await uploadImages(
-//       CurrentProjectContext,
-//       items.map((i) => i.file || i)
-//     );
-
-//     const updatedImages = localImages.map((img, i) => ({
-//       ...img,
-//       serverId: data.images[i]?.id || null,
-//       id: data.images[i]?.file_name || img.localName,
-//       annotations: data.annotations[data.images[i]?.id] || [],
-//     }));
-
-//     setImages((prev) => [...prev, ...updatedImages]);
-//     setAnnotations((prev) => ({ ...prev, ...transformData(updatedImages) }));
-//   } catch (err) {
-//     console.error("Upload error:", err);
-//   }
-// };
