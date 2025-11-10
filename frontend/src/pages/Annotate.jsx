@@ -37,6 +37,7 @@ import { ImageUploader } from "@/components/image-uploader";
 import { getImageByProjectAPI } from "@/server/saveResultAPI";
 import { useShortcuts } from "../lib/userShortcuts.js";
 import { GalleryView } from "@/components/GalleryView";
+import ReusableTable from "../components/ui/myproject.jsx";
 
 
 // --- CONSTANTS ---
@@ -84,6 +85,7 @@ const Annotate = () => {
 
   // --- Load Project if Exists ---
   useEffect(() => {
+    console.log("corrent P:", CurrentProjectContext)
     const fetchImages = async () => {
       try {
         const data = await getImageByProjectAPI(id);
@@ -418,7 +420,12 @@ const Annotate = () => {
       <div className="flex justify-center px-6 pt-6">
         <h1 className="text-5xl text-[#F88F2D] font-cadt pb-5">My Workspace</h1>
       </div>
-
+      {(!CurrentProjectContext)?(
+        <div className="h-screen"> 
+          <ReusableTable page={true}/>
+        </div>
+      ):(
+      <>
       {/* Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-6">
         {/* Upload + Dataset */}
@@ -766,6 +773,9 @@ const Annotate = () => {
           setGalleryOpen(false)
         }}
       />
+      </>
+      )
+      }
       <Footer />
     </div>
   );
