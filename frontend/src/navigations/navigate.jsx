@@ -3,56 +3,178 @@ import { RiErrorWarningLine } from "react-icons/ri";
 import { FaWandMagicSparkles } from "react-icons/fa6";
 import { FaSortAmountUp, FaHome } from "react-icons/fa";
 import { MdOutlineUploadFile } from "react-icons/md";
-import Logo from "../assets/profiles/Logo.png";
-import NewLogo from "../assets/NewLogo.png";
 import { TbLogout2 } from "react-icons/tb";
+import { HiMenuAlt3, HiX } from "react-icons/hi";
+import { useState } from "react";
+import NewLogo from "../assets/JomNam_New_Logo1.png";
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     console.log("Logging out...");
   };
 
   const navigationItems = [
-    { name: "My Project", path: "/project", icon: FaSortAmountUp },
     { name: "Home", path: "/", icon: FaHome },
-    { name: "Feature", path: "/feature", icon: FaWandMagicSparkles },
-    { name: "Annotate", path: "/annotate", icon: MdOutlineUploadFile },
+    { name: "Annotation", path: "/annotate", icon: MdOutlineUploadFile },
+    { name: "Projects", path: "/project", icon: FaSortAmountUp },
     { name: "About", path: "/about", icon: RiErrorWarningLine },
   ];
 
   return (
-    <div className="flex flex-col h-screen w-16 md:w-56 transition-all duration-300 bg-white">
-      {/* Logo Section */}
-      <div className="p-6 flex items-center justify-center">
-        <img src={NewLogo} alt="Logo" className="object-contain w-8 md:w-20" />
+    <div className="w-full bg-white">
+      {/* Desktop Navigation */}
+      <nav className="hidden md:block shadow-md">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo Section */}
+            <div className="flex items-center space-x-3">
+              <img src={NewLogo} alt="Logo" className=" object-cover w-32 h-12 p-0" />
+            </div>
+
+            {/* Navigation Menu */}
+            <div className="flex items-center space-x-2">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <NavLink
+                    key={item.name}
+                    to={item.path}
+                    onMouseEnter={() => setHoveredItem(item.name)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    className={({ isActive }) =>
+                      `relative px-6 py-2.5 rounded-md font-medium text-sm transition-all duration-300 ease-in-out transform ${
+                        isActive
+                          ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-200 scale-105"
+                          : "text-gray-700 hover:bg-gray-100 hover:scale-105"
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span className="relative z-10 flex items-center space-x-2">
+                          <Icon className="w-4 h-4" />
+                          <span>{item.name}</span>
+                        </span>
+                        
+                        {!isActive && hoveredItem === item.name && (
+                          <span className="absolute inset-0 bg-gradient-to-r from-gray-50 to-gray-100 rounded-full opacity-0 animate-pulse"></span>
+                        )}
+                        
+                        {isActive && (
+                          <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+
+            {/* Profile Section */}
+            <div className="relative cursor-pointer group">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center shadow-md transition-transform duration-300 group-hover:scale-110">
+                <span className="text-white text-lg font-semibold">U</span>
+              </div>
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Navigation */}
+      <div className="md:hidden">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between px-6 py-4 shadow-md">
+          <div className="flex items-center space-x-3">
+            <img src={NewLogo} alt="Logo" className=" object-cover w-28 h-10 p-0" />
+          </div>
+          
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            {isMobileMenuOpen ? (
+              <HiX className="w-6 h-6 text-gray-700" />
+            ) : (
+              <HiMenuAlt3 className="w-6 h-6 text-gray-700" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Menu Dropdown */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="px-6 py-4 space-y-3 bg-gray-50 shadow-inner">
+            {/* Profile in Mobile */}
+            <div className="flex items-center justify-center pb-4 border-b border-gray-200">
+              <div className="relative">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-white text-2xl font-semibold">U</span>
+                </div>
+                <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+            </div>
+
+            {/* Mobile Navigation Items */}
+            {navigationItems.map((item, index) => {
+              const Icon = item.icon;
+
+              return (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  className={({ isActive }) =>
+                    `w-full px-6 py-3 rounded-xl font-medium text-base transition-all duration-300 flex items-center space-x-3 animate-slideIn ${
+                      isActive
+                        ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg"
+                        : "text-gray-700 hover:bg-white hover:shadow-md"
+                    }`
+                  }
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.name}</span>
+                </NavLink>
+              );
+            })}
+
+            {/* Logout Button */}
+            <button 
+              onClick={handleLogout}
+              className="w-full px-6 py-3 rounded-xl font-medium text-base text-gray-600 hover:bg-white hover:text-red-500 hover:shadow-md transition-all duration-300 flex items-center justify-center space-x-2 mt-4"
+            >
+              <TbLogout2 className="w-5 h-5" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Navigation Menu */}
-      <nav className="flex-1 flex flex-col space-y-2">
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center justify-center md:justify-start px-4 py-4 rounded-xl mx-2 transition-all duration-200 ${
-                  isActive
-                    ? "bg-[#12284C] text-white shadow-gray-300 shadow-lg"
-                    : "text-[#12284C] hover:bg-opacity-10 hover:text-gray-500"
-                }`
-              }
-            >
-              <Icon className="w-6 h-6" />
-              <span className="hidden md:inline ml-6 font-bold text-sm">
-                {item.name}
-              </span>
-            </NavLink>
-          );
-        })}
-      </nav>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };

@@ -66,7 +66,7 @@ const DescriptionModal = ({ isOpen, onClose, description, title }) => {
 };
 
 // Main Reusable Table Component
-const ReusableTable = ({ data = [], onProjectCreated }) => {
+const ReusableTable = ({ data = [], onProjectCreated, page }) => {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDescription, setSelectedDescription] = useState("");
@@ -75,6 +75,11 @@ const ReusableTable = ({ data = [], onProjectCreated }) => {
   const [selectedProject, setSelectedProject] = useState(null);
 
   // simple handler invoked after an edit completes in the EditModal; adjust to refresh parent data if needed
+  useEffect(()=>{
+    if(page) {
+      setCreateModalOpen(true)
+    }
+  }, [page]);
   const onProjectEdited = async (updatedItem) => {
     console.log("Project edited:", updatedItem);
 
