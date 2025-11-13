@@ -2,7 +2,7 @@ import Footer from "../components/Footer";
 import { FcApproval } from "react-icons/fc";
 import { FaArrowRightLong } from "react-icons/fa6";
 import { MdOutlineArrowDropDown } from "react-icons/md";
-import homepage from "../assets/homepage.jpg";
+import homepage from "../assets/homepage1.jpg";
 import {
   FaUpload,
   FaDrawPolygon,
@@ -131,144 +131,139 @@ const dataItems = [
   },
 ];
 
+{/* */}
+
 export const Home = () => {
   return (
-    <div className="home-container">
-      <div className="bg-white m-2  pl-10 sm:pt-12 pt-10 h-auto lg:h-175 rounded-lg ">
-        <h2 className="text-base sm:text-xl md:text-2xl font-bold ml-4 sm:ml-8 text-[#12284c] mb-4 text-start">
-          Welcome To
-        </h2>
-        <h2 className="text-lg sm:text-3xl md:text-5xl font-cadt ml-4 sm:ml-8 text-[#F88F2D] mb-3 text-start ">
-          Khmer Data
-        </h2>
-        <h2 className="text-lg sm:text-3xl md:text-5xl font-cadt ml-4 sm:ml-8 text-[#F88F2D] mb-3 lg:mb-0 text-start ">
-          Annotation Tool
-        </h2>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <div className="bg-white">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left Content */}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-base sm:text-xl md:text-2xl font-bold ml-4 sm:ml-8 text-[#12284c] mb-4 text-start">
+                Welcome To
+                </h2>
+                <h2 className="text-lg sm:text-3xl md:text-5xl font-cadt ml-4 sm:ml-8 text-[#F88F2D] mb-3 text-start ">
+                Khmer Data
+                </h2>
+                <h2 className="text-lg sm:text-3xl md:text-5xl font-cadt ml-4 sm:ml-8 text-[#F88F2D] mb-3 lg:mb-0 text-start ">
+                Annotation Tool
+                </h2> 
+              </div>
 
-        {/* Tool Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center px-4 sm:px-8">
-          {/* Left Content */}
-          <div>
-            <p className="text-[#12284c] font-semibold max-w-2xl text-xs lg:text-lg pt-0  md:text-base">
-              Upload images, annotate text regions, extract Khmer text with OCR,
-              and validate against ground truth to build high-quality datasets.
-            </p>
+              <p className="ml-4 text-[#12284c] font-semibold text-sm sm:text-base lg:text-lg max-w-xl">
+                Upload images, annotate text regions, extract Khmer text with OCR,
+                and validate against ground truth to build high-quality datasets.
+              </p>
 
-            <ul className="text-[#12284c] font-bold mt-8 space-y-2 text-xs md:text-base">
-              <li className="flex items-center">
-                <FcApproval className="mr-2 sm:mr-3 text-sm  " />
-                Bounding box and polygon annotations
-              </li>
-              <li className="flex items-center">
-                <FcApproval className="mr-2 sm:mr-3 text-sm " />
-                Khmer and English OCR extraction
-              </li>
-              <li className="flex items-center">
-                <FcApproval className="mr-2 sm:mr-3 text-sm  " />
-                Validation with accuracy metrics
-              </li>
-            </ul>
+              <ul className="ml-4 space-y-3 text-[#12284c] font-semibold text-sm sm:text-base">
+                <li className="flex items-center gap-3">
+                  <FcApproval className="text-xl flex-shrink-0" />
+                  <span>Bounding box and polygon annotations</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <FcApproval className="text-xl flex-shrink-0" />
+                  <span>Khmer and English OCR extraction</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <FcApproval className="text-xl flex-shrink-0" />
+                  <span>Validation with accuracy metrics</span>
+                </li>
+              </ul>
 
-            {/* Buttons */}
-            <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 mt-8 sm:mt-10">
-              <a
-                href="/project"
-                className="bg-[#12284c] text-white px-2 sm:px-3 md:px-5 py-1.5 sm:py-2 md:py-3 rounded-xl flex items-center gap-1 sm:gap-2 font-cadt text-[10px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap"
-              >
-                Get Started{" "}
-                <FaArrowRightLong className="text-[12px] sm:text-sm md:text-base" />
-              </a>
+              <div className="ml-4 flex flex-wrap gap-4 pt-4">
+                <a
+                  href="/project"
+                  className="bg-[#12284c] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
+                >
+                  Get Started <FaArrowRightLong />
+                </a>
 
-              {/* Scroll Button */}
-              <button
-                onClick={() => {
-                  const element = document.getElementById("instructions");
-                  if (element) {
-                    element.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }
-                }}
-                className="bg-[#76bc21] text-white px-10 py-3 rounded-2xl flex items-center gap-2 font-cadt hover:opacity-90 active:scale-95 transition"
-              >
-                Instruction <MdOutlineArrowDropDown />
-              </button>
+                <button
+                  onClick={() => {
+                    const element = document.getElementById("instructions");
+                    if (element) {
+                      element.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    }
+                  }}
+                  className="bg-[#76bc21] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
+                >
+                  Instruction <MdOutlineArrowDropDown />
+                </button>
+              </div>
+            </div>
+
+            {/* Right Image */}
+            <div className="flex items-center justify-center lg:justify-end">
+              <div className="w-full max-w-md lg:max-w-lg">
+                <img
+                  src={homepage}
+                  alt="Khmer Text Annotation Example"
+                  className="w-full h-auto rounded-lg"
+                />
+              </div>
             </div>
           </div>
-
-          {/* Right Image Panel */}
-          <div className="flex justify-center lg:justify-end items-center mt-6 lg:mt-0">
-            <div className="bg-white">
-              <img
-                src={homepage}
-                alt="Annotated Document"
-                className="rounded-md max-h-48 sm:max-h-64 md:max-h-96 lg:max-h-100 object-contain"
-              />
-            </div>
-          </div>
-        </section>
-
-        <hr className="border-t border-gray-300 w-full" />
+        </div>
       </div>
 
       {/* Instructions Section */}
       <section
         id="instructions"
-        className="mt-10 text-white bg-[#12284C] p-6 m-4 rounded-lg mb-4 items-center text-center"
+        className="bg-[#12284C] text-white py-12 px-4 sm:px-6 lg:px-8 mt-8"
       >
-        <h2 className="text-lg font-bold sm:text-2xl md:text-4xl whitespace-nowrap">
-          Annotation Workflow Instruction
-        </h2>
-        <div className="text-white text-xs sm:text-sm md:text-base text-center mt-5 max-w-5xl mx-auto">
-          Follow this detailed step-by-step annotation workflow how to annotate
-          images, run OCR, validate, and export your results to more
-          efficiently.
+        <div className="container mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">
+            Annotation Workflow Instruction
+          </h2>
+          <p className="text-sm sm:text-base lg:text-lg max-w-4xl mx-auto opacity-90">
+            Follow this detailed step-by-step annotation workflow how to annotate
+            images, run OCR, validate, and export your results more efficiently.
+          </p>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-7 rounded-lg p-6 mt-1 mb-2">
-        {dataItems.map((item, index) => (
-          <div
-            key={index}
-            className="flex flex-col sm:flex-row bg-white shadow-md rounded-lg p-5 hover:shadow-lg transition duration-300 h-full"
-          >
-            {/* Number (top on mobile, left on desktop) */}
-            <div className="flex items-center justify-center mb-3 sm:mb-0 sm:mr-4">
-              <div className="flex items-center justify-center text-center w-12 h-12 text-white text-2xl font-bold rounded-full bg-[#F88F2D]">
-                {item.number}
+      {/* Workflow Steps */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {dataItems.map((item, index) => (
+            <div
+              key={index}
+              className="bg-white shadow-md rounded-lg p-6 hover:shadow-xl transition-shadow duration-300 flex gap-4"
+            >
+              {/* Number Badge */}
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 bg-[#F88F2D] text-white text-xl font-bold rounded-full flex items-center justify-center">
+                  {item.number}
+                </div>
               </div>
-            </div>
 
-            {/* Content */}
-            <div className="flex-1 flex flex-col items-start justify-start">
-              <h3
-                className={`font-bold ${item.color.replace(
-                  "bg",
-                  "text"
-                )} text-center sm:text-left w-full`}
-              >
-                {item.title}
-              </h3>
-              <div className="text-gray-600 text-sm max-w-md mt-1">
-                {item.description}
+              {/* Content */}
+              <div className="flex-1">
+                <h3 className="text-lg font-bold mb-2">{item.title}</h3>
+                <div className="text-gray-600 text-sm leading-relaxed">
+                  {item.description}
+                </div>
               </div>
-            </div>
 
-            {/* Icon (hidden on mobile, visible on md+) */}
-            <div className="hidden md:flex items-center justify-end ml-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white border-4 border-gray-100 shadow-sm">
-                <span
-                  className={`text-2xl ${item.color.replace("bg", "text")}`}
-                >
-                  {item.icon}
-                </span>
+              {/* Icon */}
+              <div className="hidden md:flex items-start flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-gray-50 border-2 border-gray-200 flex items-center justify-center">
+                  <span className="text-2xl">{item.icon}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
+      {/* Footer */}
       <Footer />
     </div>
   );
