@@ -2,7 +2,7 @@
 // This file is part of the Open-Source project:
 import axios from "axios";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { NavLink, useParams, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,14 @@ const Annotate = () => {
   });
   const { id } = useParams();
   const CurrentProjectContext = id;
+  const navigate = useNavigate();
+
+  // If no project id (no current project), navigate to project list
+  useEffect(() => {
+    if (!id) {
+      navigate("/project");
+    }
+  }, [id, navigate]);
 
   const currentImage = images.find((i) => i.id === currentId);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -421,9 +429,10 @@ const Annotate = () => {
         <h1 className="text-5xl text-[#F88F2D] font-cadt pb-5">My Workspace</h1>
       </div>
       {(!CurrentProjectContext)?(
-        <div className="h-screen"> 
-          <ReusableTable page={true}/>
-        </div>
+        // <div className="h-screen"> 
+        //   <ReusableTable page={true}/>
+        // </div>
+        <NavLink to="/project" />
       ):(
       <>
       {/* Layout */}
