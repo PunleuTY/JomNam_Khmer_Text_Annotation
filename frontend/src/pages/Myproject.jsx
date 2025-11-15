@@ -1,13 +1,19 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Link } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   FolderOpen,
   Plus,
@@ -18,14 +24,16 @@ import {
   CheckCircle2,
   Activity,
   TrendingUp,
-} from "lucide-react"
-import { useI18n } from "@/components/I18nProvider"
+} from "lucide-react";
+import { useI18n } from "@/components/I18nProvider";
+import Footer from "../components/Footer";
 
 const sampleProjects = [
   {
     id: "1",
     name: "Khmer Historical Documents",
-    description: "Ancient Khmer manuscripts and historical texts for OCR training dataset",
+    description:
+      "Ancient Khmer manuscripts and historical texts for OCR training dataset",
     imageCount: 255,
     annotatedCount: 180,
     updatedAt: "2025-10-29",
@@ -34,30 +42,32 @@ const sampleProjects = [
   {
     id: "2",
     name: "Modern Khmer Newspapers",
-    description: "Contemporary newspaper articles and headlines for text detection models",
+    description:
+      "Contemporary newspaper articles and headlines for text detection models",
     imageCount: 512,
     annotatedCount: 512,
     updatedAt: "2025-10-28",
     status: "completed",
   },
-]
+];
 
 export default function WorkspacePage() {
-  const { t } = useI18n()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [newProjectName, setNewProjectName] = useState("")
-  const [newProjectDescription, setNewProjectDescription] = useState("")
-  const [projects, setProjects] = useState(sampleProjects)
+  const { t } = useI18n();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [projects, setProjects] = useState(sampleProjects);
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = filterStatus === "all" || project.status === filterStatus
-    return matchesSearch && matchesStatus
-  })
+      project.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      filterStatus === "all" || project.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   const stats = {
     total: projects.length,
@@ -65,14 +75,16 @@ export default function WorkspacePage() {
     completed: projects.filter((p) => p.status === "completed").length,
     totalImages: projects.reduce((sum, p) => sum + p.imageCount, 0),
     totalAnnotated: projects.reduce((sum, p) => sum + p.annotatedCount, 0),
-  }
+  };
 
-  const completionRate = Math.round((stats.totalAnnotated / stats.totalImages) * 100)
+  const completionRate = Math.round(
+    (stats.totalAnnotated / stats.totalImages) * 100
+  );
 
   const handleCreateProject = () => {
     if (!newProjectName.trim() || !newProjectDescription.trim()) {
-      alert(t("workspace.createProject.requiredFields"))
-      return
+      alert(t("workspace.createProject.requiredFields"));
+      return;
     }
 
     const newProject = {
@@ -83,32 +95,54 @@ export default function WorkspacePage() {
       annotatedCount: 0,
       updatedAt: new Date().toISOString().split("T")[0],
       status: "not-started",
-    }
+    };
 
-    setProjects([newProject, ...projects])
-    setNewProjectName("")
-    setNewProjectDescription("")
-    setCreateDialogOpen(false)
-  }
+    setProjects([newProject, ...projects]);
+    setNewProjectName("");
+    setNewProjectDescription("");
+    setCreateDialogOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
-      <header className="bg-white border-b shadow-sm">
+      <header>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 text-center">
-          <h1 className="text-5xl font-extrabold text-orange-500 mb-3 tracking-tight" style={{ fontFamily: "font-cadt" }}>
+          <h1 className="text-3xl md:text-5xl font-cadt text-[#F88F2D] mb-3">
             Project Workspace
           </h1>
-          <p className="text-gray-600 text-lg">{t("Manage your annotation projects and datasets")}</p>
+          <p className="text-gray-600 text-lg">
+            {t("Manage your annotation projects and datasets")}
+          </p>
         </div>
       </header>
 
       {/* Project Statistics */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard icon={<FolderOpen />} label="Total Projects" value={stats.total} color="bg-slate-800" />
-        <StatCard icon={<Activity />} label="In Progress" value={stats.inProgress} color="bg-amber-900" />
-        <StatCard icon={<CheckCircle2 />} label="Completed" value={stats.completed} color="bg-emerald-900" />
-        <StatCard icon={<ImageIcon />} label="Total Images" value={stats.totalImages} color="bg-slate-800" />
+        <StatCard
+          icon={<FolderOpen />}
+          label="Total Projects"
+          value={stats.total}
+          color="bg-slate-800"
+        />
+        <StatCard
+          icon={<Activity />}
+          label="In Progress"
+          value={stats.inProgress}
+          color="bg-amber-900"
+        />
+        <StatCard
+          icon={<CheckCircle2 />}
+          label="Completed"
+          value={stats.completed}
+          color="bg-emerald-900"
+        />
+        <StatCard
+          icon={<ImageIcon />}
+          label="Total Images"
+          value={stats.totalImages}
+          color="bg-slate-800"
+        />
         <StatCard
           icon={<TrendingUp />}
           label="Completion Rate"
@@ -144,9 +178,13 @@ export default function WorkspacePage() {
       {/* Project List */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4">
         {filteredProjects.length > 0 ? (
-          filteredProjects.map((project) => <ProjectCard key={project.id} project={project} />)
+          filteredProjects.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))
         ) : (
-          <p className="text-center text-gray-500 py-10 text-lg">No projects found</p>
+          <p className="text-center text-gray-500 py-10 text-lg">
+            No projects found
+          </p>
         )}
       </section>
 
@@ -162,7 +200,9 @@ export default function WorkspacePage() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-lg bg-white rounded-2xl shadow-2xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Create New Project</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              Create New Project
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-5 py-4">
             <div className="space-y-2">
@@ -179,7 +219,10 @@ export default function WorkspacePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="project-description" className="text-sm font-medium">
+              <Label
+                htmlFor="project-description"
+                className="text-sm font-medium"
+              >
                 Description <span className="text-red-500">*</span>
               </Label>
               <Textarea
@@ -194,7 +237,10 @@ export default function WorkspacePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -207,8 +253,10 @@ export default function WorkspacePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Footer removed from individual project cards */}
+      <Footer />
     </div>
-  )
+  );
 }
 
 function StatCard({ icon, label, value, color, sub }) {
@@ -219,18 +267,18 @@ function StatCard({ icon, label, value, color, sub }) {
       <div className="text-4xl font-bold">{value}</div>
       {sub && <div className="text-xs opacity-70 mt-1">{sub}</div>}
     </div>
-  )
+  );
 }
 
 function ProjectCard({ project }) {
   const progress = project.imageCount
     ? Math.round((project.annotatedCount / project.imageCount) * 100)
-    : 0
+    : 0;
   const statusColors = {
     "in-progress": "bg-orange-100 text-orange-700 border-orange-300",
     completed: "bg-emerald-100 text-emerald-700 border-emerald-300",
     "not-started": "bg-gray-100 text-gray-700 border-gray-300",
-  }
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -239,7 +287,11 @@ function ProjectCard({ project }) {
           <h3 className="font-bold text-lg text-gray-900">{project.name}</h3>
           <p className="text-gray-600 text-sm">{project.description}</p>
         </div>
-        <Badge className={`${statusColors[project.status]} border px-3 py-1 text-sm font-medium`}>
+        <Badge
+          className={`${
+            statusColors[project.status]
+          } border px-3 py-1 text-sm font-medium`}
+        >
           {project.status.replace("-", " ").toUpperCase()}
         </Badge>
       </div>
@@ -250,11 +302,14 @@ function ProjectCard({ project }) {
         </div>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
-          <span className="font-semibold">{project.annotatedCount}</span> Annotated
+          <span className="font-semibold">{project.annotatedCount}</span>{" "}
+          Annotated
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4" />
-          <span>Updated {new Date(project.updatedAt).toLocaleDateString()}</span>
+          <span>
+            Updated {new Date(project.updatedAt).toLocaleDateString()}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-4">
@@ -274,5 +329,5 @@ function ProjectCard({ project }) {
         </Link>
       </div>
     </div>
-  )
+  );
 }

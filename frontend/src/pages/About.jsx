@@ -1,6 +1,7 @@
-import Footer from "../components/Footer";
+// Footer is provided by the global layout
 import MissionVision from "../components/MissionVision";
 import Card from "../components/Card";
+import Footer from "../components/Footer";
 
 const About = () => {
   const mission =
@@ -10,18 +11,20 @@ const About = () => {
 
   const advisors = [
     { names: "Dr. Va Hongly", title: "Senior Lecturer-Researcher" },
-    { names: "Mr. Him Soklong", title: "Lecturer-Researcher" },
+    // { names: "Mr. Him Soklong", title: "Lecturer-Researcher" },
   ];
-  const mentors = [{ names: "Ms. So Kimlang", title: "Senior AI Specialist" }];
+  // const mentors = [{ names: "Ms. So Kimlang", title: "Senior AI Specialist" }];
   const members = [
-    { names: "Ty Punleu", title: "Data Engineer" },
-    { names: "Srey Sitharath", title: "Data Engineer" },
-    { names: "Eng Mengeang", title: "Data Engineer" },
-    { names: "Khean Sievlinh", title: "Frontend Dev" },
-    { names: "Kim Jessica", title: "Frontend Dev" },
+    { names: "Ty Punleu", title: "ML Engineer" },
+    { names: "Srey Sitharath", title: "ML Engineer" },
     { names: "Manh Seila", title: "Backend Dev" },
-    { names: "Pov Yanghai", title: "Backend Dev" },
-    { names: "Touch Lyheng", title: "Backend Dev" },
+    { names: "Song Kimleangchhay", title: "Frontend Dev" },
+    // { names: "Eng Mengeang", title: "Data Engineer" },
+    // { names: "Khean Sievlinh", title: "Frontend Dev" },
+    // { names: "Kim Jessica", title: "Frontend Dev" },
+
+    // { names: "Pov Yanghai", title: "Backend Dev" },
+    // { names: "Touch Lyheng", title: "Backend Dev" },
   ];
 
   return (
@@ -54,27 +57,17 @@ const About = () => {
           </div>
 
           {/* Advisors + Mentor Section */}
-          <div className="m-4 rounded-xl gap-6 grid grid-cols-1 md:grid-cols-3">
+          <div className="m-4 rounded-xl gap-6 grid grid-cols-1 ">
             {/* Advisors */}
             <div className="bg-white py-6 px-6 md:px-12 col-span-1 md:col-span-2 rounded-xl">
               <h2 className="text-xl sm:text-2xl md:text-3xl text-black text-center font-bold mb-6">
                 Advisors
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+              <div className="grid grid-cols-1">
                 {advisors.map((item, index) => (
                   <Card key={index} name={item.names} title={item.title} />
                 ))}
               </div>
-            </div>
-
-            {/* Mentor */}
-            <div className="bg-white py-6 px-6 md:px-12 rounded-xl">
-              <h2 className="text-xl sm:text-2xl md:text-3xl text-center mb-6 font-bold text-black">
-                Mentor
-              </h2>
-              {mentors.map((item, index) => (
-                <Card key={index} name={item.names} title={item.title} />
-              ))}
             </div>
           </div>
 

@@ -1,7 +1,8 @@
-import Footer from "../components/Footer";
+// Footer is provided by the global layout
 import { FcApproval } from "react-icons/fc";
 import { FaArrowRightLong } from "react-icons/fa6";
 import { MdOutlineArrowDropDown } from "react-icons/md";
+import Footer from "../components/Footer";
 import homepage from "../assets/homepage1.jpg";
 import {
   FaUpload,
@@ -131,8 +132,6 @@ const dataItems = [
   },
 ];
 
-{/* */}
-
 export const Home = () => {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,25 +140,23 @@ export const Home = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left Content */}
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-base sm:text-xl md:text-2xl font-bold ml-4 sm:ml-8 text-[#12284c] mb-4 text-start">
-                Welcome To
+            <div className="flex flex-col gap-8 p-0 px-4">
+              <div className="flex flex-col ">
+                <h2 className="text-base sm:text-xl md:text-2xl font-bold text-[#12284c] mb-2 text-start">
+                  Welcome To
                 </h2>
-                <h2 className="text-lg sm:text-3xl md:text-5xl font-cadt ml-4 sm:ml-8 text-[#F88F2D] mb-3 text-start ">
-                Khmer Data
+                <h2 className="text-3xl md:text-5xl font-cadt text-[#F88F2D] mb-3 text-start ">
+                  Khmer Text Annotation Tool
                 </h2>
-                <h2 className="text-lg sm:text-3xl md:text-5xl font-cadt ml-4 sm:ml-8 text-[#F88F2D] mb-3 lg:mb-0 text-start ">
-                Annotation Tool
-                </h2> 
               </div>
 
-              <p className="ml-4 text-[#12284c] font-semibold text-sm sm:text-base lg:text-lg max-w-xl">
-                Upload images, annotate text regions, extract Khmer text with OCR,
-                and validate against ground truth to build high-quality datasets.
+              <p className="text-[#12284c] font-semibold text-sm sm:text-base lg:text-lg max-w-xl">
+                Upload images, annotate text regions, extract Khmer text with
+                OCR, and validate against ground truth to build high-quality
+                datasets.
               </p>
 
-              <ul className="ml-4 space-y-3 text-[#12284c] font-semibold text-sm sm:text-base">
+              <ul className="space-y-3 text-[#12284c] font-semibold text-sm sm:text-base">
                 <li className="flex items-center gap-3">
                   <FcApproval className="text-xl flex-shrink-0" />
                   <span>Bounding box and polygon annotations</span>
@@ -174,7 +171,7 @@ export const Home = () => {
                 </li>
               </ul>
 
-              <div className="ml-4 flex flex-wrap gap-4 pt-4">
+              <div className="flex flex-wrap gap-4 pt-4">
                 <a
                   href="/project"
                   className="bg-[#12284c] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
@@ -192,7 +189,7 @@ export const Home = () => {
                       });
                     }
                   }}
-                  className="bg-[#76bc21] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
+                  className="bg-[#76bc21] hover:cursor-pointer text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
                 >
                   Instruction <MdOutlineArrowDropDown />
                 </button>
@@ -223,8 +220,9 @@ export const Home = () => {
             Annotation Workflow Instruction
           </h2>
           <p className="text-sm sm:text-base lg:text-lg max-w-4xl mx-auto opacity-90">
-            Follow this detailed step-by-step annotation workflow how to annotate
-            images, run OCR, validate, and export your results more efficiently.
+            Follow this detailed step-by-step annotation workflow how to
+            annotate images, run OCR, validate, and export your results more
+            efficiently.
           </p>
         </div>
       </section>
