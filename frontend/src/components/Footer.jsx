@@ -38,7 +38,7 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Team Collaborate */}
+          {/* Quick Link */}
           <div className="col-start-2 row-start-1 mt-4 md:col-auto md:row-auto text-left">
             <h4 className="text-lg font-bold mb-2">Quick Links</h4>
             <ul className="space-y-1">

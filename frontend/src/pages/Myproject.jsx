@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Activity,
+  ChevronDown,
   TrendingUp,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
@@ -163,20 +164,23 @@ export default function WorkspacePage() {
             className="pl-12 h-12 text-base border-gray-300"
           />
         </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-6 h-12 border border-gray-300 rounded-lg text-base bg-white hover:bg-gray-50 transition"
-        >
-          <option value="all">{t("All Status")}</option>
-          <option value="in-progress">{t("In Progress")}</option>
-          <option value="completed">{t("Completed")}</option>
-          <option value="not-started">{t("Not Started")}</option>
-        </select>
+        <div className="relative w-56">
+          {/* Custom dropdown: button toggles menu to allow full styling of popup */}
+          <StatusDropdown
+            value={filterStatus}
+            onChange={(v) => setFilterStatus(v)}
+            options={[
+              { value: "all", label: t("All Status") },
+              { value: "in-progress", label: t("In Progress") },
+              { value: "completed", label: t("Completed") },
+              { value: "not-started", label: t("Not Started") },
+            ]}
+          />
+        </div>
       </section>
 
       {/* Project List */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4 mb-5">
         {filteredProjects.length > 0 ? (
           filteredProjects.map((project) => (
             <ProjectCard key={project.id} project={project} />
@@ -328,6 +332,63 @@ function ProjectCard({ project }) {
           </Button>
         </Link>
       </div>
+    </div>
+  );
+}
+
+function StatusDropdown({ value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function onDoc(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const selected = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="w-full flex items-center justify-between px-4 py-3 h-12 border border-gray-300 rounded-lg bg-white text-left text-base focus:outline-none focus:ring-2 focus:ring-[#12284c]"
+      >
+        <span className="truncate">{selected.label}</span>
+        <ChevronDown className="w-5 h-5 text-gray-500 ml-3" />
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          aria-activedescendant={selected.value}
+          className="absolute right-0 left-0 mt-2 bg-white border border-gray-200 rounded-md shadow-lg z-50 overflow-hidden"
+        >
+          {options.map((opt) => (
+            <li key={opt.value} id={opt.value} role="option">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 hover:bg-[#12284c] hover:text-white transition ${
+                  opt.value === value
+                    ? "bg-[#12284c] text-white"
+                    : "text-gray-800"
+                }`}
+              >
+                {opt.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -21,10 +21,10 @@ function App() {
           <Route path="feature" element={<Feature />} />
           <Route path="about" element={<About />} />
           <Route path="project" element={<Project />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
         <Route path="login" element={<Login />} />
         <Route path="signup" element={<Signup />} />
-        <Route path="profile" element={<Profile />} />
       </Routes>
     </Router>
   );

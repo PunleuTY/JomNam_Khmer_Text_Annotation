@@ -7,11 +7,11 @@ import homepage from "../assets/homepage1.jpg";
 import {
   FaUpload,
   FaDrawPolygon,
-  FaSearch,
+  FaRegEdit,
   FaFileExport,
   FaChartLine,
-  FaClipboardList,
 } from "react-icons/fa";
+import { GrValidate } from "react-icons/gr";
 
 const dataItems = [
   {
@@ -92,7 +92,7 @@ const dataItems = [
       </>
     ),
     color: "bg-red-400",
-    icon: <FaSearch style={{ color: "#202381" }} />,
+    icon: <GrValidate style={{ color: "#202381" }} />,
   },
   {
     number: "05",
@@ -112,7 +112,7 @@ const dataItems = [
       </>
     ),
     color: "bg-red-300",
-    icon: <FaClipboardList style={{ color: "#202381" }} />,
+    icon: <FaRegEdit style={{ color: "#202381" }} />,
   },
 
   {
@@ -140,7 +140,7 @@ export const Home = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left Content */}
-            <div className="flex flex-col gap-8 p-0 px-4">
+            <div className="flex flex-col gap-8 p-0 md:pl-20">
               <div className="flex flex-col ">
                 <h2 className="text-base sm:text-xl md:text-2xl font-bold text-[#12284c] mb-2 text-start">
                   Welcome To
@@ -251,7 +251,7 @@ export const Home = () => {
               </div>
 
               {/* Icon */}
-              <div className="hidden md:flex items-start flex-shrink-0">
+              <div className="flex items-start flex-shrink-0">
                 <div className="w-12 h-12 rounded-full bg-gray-50 border-2 border-gray-200 flex items-center justify-center">
                   <span className="text-2xl">{item.icon}</span>
                 </div>
