@@ -4,14 +4,16 @@ import { BsBoundingBoxCircles } from "react-icons/bs";
 import { TbTextScan2 } from "react-icons/tb";
 import { HiOutlineClipboardCheck } from "react-icons/hi";
 import { PiExportBold } from "react-icons/pi";
-import Footer from "../components/Footer";
+// Footer is provided by the global layout
 // import { NavLink,Navigate } from "react-router-dom";
+import Footer from "../components/Footer";
 
 const featuresData = [
   {
     icon: FiUpload,
     title: "Create Project Workspace / Upload Dataset",
-    description: "Easily create workspace and upload your image with format (JPG/PNG).",
+    description:
+      "Easily create workspace and upload your image with format (JPG/PNG).",
     tag: "Dataset",
   },
   {
@@ -53,8 +55,8 @@ const SidebarItem = () => {
         Ready to Annotate Your Data?
       </h2>
       <p className="mb-6 text-sm sm:text-base md:text-lg">
-        Upload your datasets Khmer and get detailed validation
-        results in seconds!
+        Upload your datasets Khmer and get detailed validation results in
+        seconds!
       </p>
       <a href="/annotate">
         <button className="bg-[#F88F2D] text-white font-semibold px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 rounded-xl shadow hover:bg-white hover:text-[#F88F2D] transition text-xs sm:text-sm md:text-base whitespace-nowrap">
@@ -73,9 +75,9 @@ const Features = () => {
           Powerful Features
         </h1>
         <p className="text-gray-600 sm:text-lg text-base mt-4 sm:mt-6 mb-4 sm:mb-6 text-center">
-          Easily upload, annotate, and validate your Khmer datasets
-          with OCR extraction, precise labeling, accuracy metrics, and export
-          options-All in one efficient tool.
+          Easily upload, annotate, and validate your Khmer datasets with OCR
+          extraction, precise labeling, accuracy metrics, and export options-All
+          in one efficient tool.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ">

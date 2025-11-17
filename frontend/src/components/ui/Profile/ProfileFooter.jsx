@@ -1,11 +1,13 @@
 import { FiLogOut } from "react-icons/fi";
 import { FaRegUserCircle } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 export default function ProfileFooter({ email }) {
+  const navigate = useNavigate();
   const handleLogout = () => {
-    // Add logout logic here
-    console.log("Logging out...")
-  }
+    navigate("/login");
+    console.log("Logging out...");
+  };
 
   return (
     <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
@@ -29,5 +31,5 @@ export default function ProfileFooter({ email }) {
         </button>
       </div>
     </div>
-  )
+  );
 }
