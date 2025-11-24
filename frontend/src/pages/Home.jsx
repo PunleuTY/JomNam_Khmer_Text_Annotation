@@ -1,7 +1,8 @@
 // Footer is provided by the global layout
 import { FcApproval } from "react-icons/fc";
-import { FaArrowRightLong } from "react-icons/fa6";
-import { MdOutlineArrowDropDown } from "react-icons/md";
+import { FaArrowRight } from "react-icons/fa";
+// import { MdOutlineArrowDropDown } from "react-icons/md";
+import { TiArrowSortedDown } from "react-icons/ti";
 import Footer from "../components/Footer";
 import homepage from "../assets/homepage1.jpg";
 import {
@@ -176,7 +177,7 @@ export const Home = () => {
                   href="/project"
                   className="bg-[#12284c] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
                 >
-                  Get Started <FaArrowRightLong />
+                  Get Started <FaArrowRight />
                 </a>
 
                 <button
@@ -191,7 +192,7 @@ export const Home = () => {
                   }}
                   className="bg-[#76bc21] hover:cursor-pointer text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold text-sm sm:text-base hover:bg-opacity-90 transition-all"
                 >
-                  Instruction <MdOutlineArrowDropDown />
+                  Instruction <TiArrowSortedDown />
                 </button>
               </div>
             </div>

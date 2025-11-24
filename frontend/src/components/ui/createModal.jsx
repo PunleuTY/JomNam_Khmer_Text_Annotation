@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { createProjectAPI } from "../../server/saveResultAPI";
+import { toast } from "react-toastify";
 
 // Modal Component for Create Project
 export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
@@ -34,8 +35,8 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
       navigate("/Annotate/" + project.project.id);
     } catch (error) {
       console.error("createModal: createProject failed", error);
-      // Show a simple alert but include the error message for debugging
-      alert(
+      // Show a simple error toast with the error message for debugging
+      toast.error(
         `Failed to create project. Please try again.\n${
           error?.message || error
         }`
@@ -71,7 +72,6 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
           <h2 className="text-center text-xl font-semibold text-gray-800">
             Create New Project
           </h2>
-          
         </div>
 
         <div className="space-y-4">
@@ -121,7 +121,7 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={createProject}
             disabled={loading}
             className={`bg-[#F88F2D] hover:bg-orange-300 text-white px-6 py-2 rounded-md font-medium transition-colors duration-200 ${
@@ -130,7 +130,6 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
           >
             {loading ? "Creating..." : "Create"}
           </button>
-          
         </div>
       </div>
     </div>

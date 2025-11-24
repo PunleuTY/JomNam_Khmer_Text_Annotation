@@ -5,15 +5,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import CreateProjectDialog from "@/components/CreateProjectDialog";
 import {
   FolderOpen,
   Plus,
@@ -25,6 +17,8 @@ import {
   Activity,
   ChevronDown,
   TrendingUp,
+  Edit3,
+  Trash2,
 } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import Footer from "../components/Footer";
@@ -57,8 +51,6 @@ export default function WorkspacePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectDescription, setNewProjectDescription] = useState("");
   const [projects, setProjects] = useState(sampleProjects);
 
   const filteredProjects = projects.filter((project) => {
@@ -82,26 +74,20 @@ export default function WorkspacePage() {
     (stats.totalAnnotated / stats.totalImages) * 100
   );
 
-  const handleCreateProject = () => {
-    if (!newProjectName.trim() || !newProjectDescription.trim()) {
-      alert(t("workspace.createProject.requiredFields"));
-      return;
-    }
-
-    const newProject = {
-      id: `${Date.now()}`,
-      name: newProjectName.trim(),
-      description: newProjectDescription.trim(),
-      imageCount: 0,
-      annotatedCount: 0,
-      updatedAt: new Date().toISOString().split("T")[0],
-      status: "not-started",
-    };
-
+  const handleCreateProject = (newProject) => {
     setProjects([newProject, ...projects]);
-    setNewProjectName("");
-    setNewProjectDescription("");
-    setCreateDialogOpen(false);
+  };
+
+  // Handle editing a project
+  const handleEditProject = (project) => {
+    // TODO: Implement project edit functionality
+    console.log("Edit project:", project);
+  };
+
+  // Handle deleting a project
+  const handleDeleteProject = (project) => {
+    // TODO: Implement project delete functionality
+    console.log("Delete project:", project);
   };
 
   return (
@@ -183,7 +169,12 @@ export default function WorkspacePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4 mb-5">
         {filteredProjects.length > 0 ? (
           filteredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onEdit={handleEditProject}
+              onDelete={handleDeleteProject}
+            />
           ))
         ) : (
           <p className="text-center text-gray-500 py-10 text-lg">
@@ -201,62 +192,11 @@ export default function WorkspacePage() {
       </button>
 
       {/* Create Project Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-white rounded-2xl shadow-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">
-              Create New Project
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="project-name" className="text-sm font-medium">
-                Project Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="project-name"
-                placeholder="Enter your project title (e.g., Khmer OCR Dataset)"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                className="h-12 text-base"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label
-                htmlFor="project-description"
-                className="text-sm font-medium"
-              >
-                Description <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="project-description"
-                placeholder="Briefly describe the project purpose or dataset (max 300 characters)"
-                value={newProjectDescription}
-                onChange={(e) => setNewProjectDescription(e.target.value)}
-                rows={4}
-                className="resize-none text-base"
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateProject}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-medium"
-              disabled={!newProjectName.trim() || !newProjectDescription.trim()}
-            >
-              Create Project
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateProjectDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreateProject={handleCreateProject}
+      />
       {/* Footer removed from individual project cards */}
       <Footer />
     </div>
@@ -274,7 +214,7 @@ function StatCard({ icon, label, value, color, sub }) {
   );
 }
 
-function ProjectCard({ project }) {
+function ProjectCard({ project, onEdit, onDelete }) {
   const progress = project.imageCount
     ? Math.round((project.annotatedCount / project.imageCount) * 100)
     : 0;
@@ -287,17 +227,35 @@ function ProjectCard({ project }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
-        <div>
+        <div className="flex-1">
           <h3 className="font-bold text-lg text-gray-900">{project.name}</h3>
           <p className="text-gray-600 text-sm">{project.description}</p>
         </div>
-        <Badge
-          className={`${
-            statusColors[project.status]
-          } border px-3 py-1 text-sm font-medium`}
-        >
-          {project.status.replace("-", " ").toUpperCase()}
-        </Badge>
+        <div className="flex items-center gap-2 ml-4">
+          <Badge
+            className={`${
+              statusColors[project.status]
+            } border px-3 py-1 text-sm font-medium`}
+          >
+            {project.status.replace("-", " ").toUpperCase()}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(project)}
+            className="h-8 w-8 p-0 border-gray-300 hover:border-[#F88F2D] hover:text-[#F88F2D]"
+          >
+            <Edit3 className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(project)}
+            className="h-8 w-8 p-0 border-gray-300 hover:border-red-500 hover:text-red-500"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
       <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
         <div className="flex items-center gap-2">

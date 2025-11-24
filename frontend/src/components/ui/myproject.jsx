@@ -6,6 +6,7 @@ import { MdCreateNewFolder } from "react-icons/md";
 import { CreateProjectModal } from "./createModal";
 import { deleteProjectAPI } from "@/server/deleteAPI";
 import { EditModal } from "@/components/ui/EditModal";
+import { toast } from "react-toastify";
 import nav2 from "@/assets/nav2.png";
 // Modal Component for Full Description (shows full content; no internal scroll)
 const DescriptionModal = ({ isOpen, onClose, description, title }) => {
@@ -75,9 +76,9 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
   const [selectedProject, setSelectedProject] = useState(null);
 
   // simple handler invoked after an edit completes in the EditModal; adjust to refresh parent data if needed
-  useEffect(()=>{
-    if(page) {
-      setCreateModalOpen(true)
+  useEffect(() => {
+    if (page) {
+      setCreateModalOpen(true);
     }
   }, [page]);
   const onProjectEdited = async (updatedItem) => {
@@ -140,28 +141,74 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
 
   // Example handleDelete function with placeholder fetch
   const handleDelete = async (item) => {
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      console.log("Delete item:", item);
-
-      try {
-        // Delete project via API
-        const response = await deleteProjectAPI(item.id);
-
-        console.log("Delete response:", response);
-
-        // Check if deletion was successful
-        if (response.success || response.message) {
-          console.log("Item deleted successfully");
-          // Automatically refresh the project list after successful deletion
-          if (onProjectCreated) {
-            await onProjectCreated();
-          }
-        } else {
-          console.error("Failed to delete item");
-        }
-      } catch (error) {
-        console.error("Error deleting item:", error);
+    toast.warn(
+      <div>
+        <p>Are you sure you want to delete this item?</p>
+        <div style={{ marginTop: "10px" }}>
+          <button
+            onClick={() => {
+              performDelete(item);
+              toast.dismiss();
+            }}
+            style={{
+              marginRight: "10px",
+              padding: "5px 10px",
+              backgroundColor: "#dc3545",
+              color: "white",
+              border: "none",
+              borderRadius: "3px",
+            }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            style={{
+              padding: "5px 10px",
+              backgroundColor: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "3px",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>,
+      {
+        position: "top-center",
+        autoClose: false,
+        hideProgressBar: true,
+        closeOnClick: false,
+        draggable: false,
       }
+    );
+  };
+
+  const performDelete = async (item) => {
+    console.log("Delete item:", item);
+
+    try {
+      // Delete project via API
+      const response = await deleteProjectAPI(item.id);
+
+      console.log("Delete response:", response);
+
+      // Check if deletion was successful
+      if (response.success || response.message) {
+        console.log("Item deleted successfully");
+        toast.success("Item deleted successfully!");
+        // Automatically refresh the project list after successful deletion
+        if (onProjectCreated) {
+          await onProjectCreated();
+        }
+      } else {
+        console.error("Failed to delete item");
+        toast.error("Failed to delete item");
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      toast.error("Error deleting item: " + error.message);
     }
   };
 
@@ -187,7 +234,9 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
                 <th className="px-6 py-3 text-left  text-sm font-medium text-white tracking-wider w-40">
                   Last Edit
                 </th>
-                <th className="px-1 py-3 text-right pr-13 text-sm font-medium text-white tracking-wider w-16">Edit</th>
+                <th className="px-1 py-3 text-right pr-13 text-sm font-medium text-white tracking-wider w-16">
+                  Edit
+                </th>
               </tr>
             </thead>
 
@@ -265,7 +314,6 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
                       </button>
                     </div>
                   </td>
-
                 </tr>
               ))}
             </tbody>

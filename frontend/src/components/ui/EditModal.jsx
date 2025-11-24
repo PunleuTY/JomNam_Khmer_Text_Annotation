@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { editProjectAPI } from "../../server/getProjectResult";
+import { toast } from "react-toastify";
 
 export const EditModal = ({ isOpen, onClose, onEdited, item }) => {
   const [formData, setFormData] = useState({
@@ -32,11 +33,11 @@ export const EditModal = ({ isOpen, onClose, onEdited, item }) => {
     console.log("item:", item);
 
     if (!formData.name.trim()) {
-      alert("Title cannot be empty!");
+      toast.warn("Title cannot be empty!");
       return;
     }
     if (!item?.id) {
-      alert("No project selected to edit!");
+      toast.error("No project selected to edit!");
       return;
     }
 
@@ -52,14 +53,14 @@ export const EditModal = ({ isOpen, onClose, onEdited, item }) => {
         await onEdited(updatedProject);
       }
 
-      alert("Project updated successfully!");
+      toast.success("Project updated successfully!");
 
       // close modal after successful update and parent notification
       onClose();
     } catch (error) {
       console.error("editModal: editProject failed", error);
-      // Show a simple alert but include the error message for debugging
-      alert(
+      // Show a simple error toast with the error message for debugging
+      toast.error(
         `Failed to update project. Please try again.\n${
           error?.message || error
         }`
