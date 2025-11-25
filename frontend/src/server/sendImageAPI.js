@@ -1,4 +1,5 @@
 import { file } from "jszip";
+import { toast } from "react-toastify";
 
 const BACKEND_UPLOAD_URL = `${import.meta.env.VITE_ML_BASE_ENDPOINT}/images/`;
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_ENDPOINT;
@@ -61,6 +62,6 @@ export const saveGroundTruth = async (
     return data;
   } catch (err) {
     console.error("Error saving ground truth:", err);
-    alert("Error saving ground truth");
+    toast.error("Error saving ground truth");
   }
 };
