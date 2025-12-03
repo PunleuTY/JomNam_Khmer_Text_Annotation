@@ -1,12 +1,23 @@
 import { FiLogOut } from "react-icons/fi";
 import { FaRegUserCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "react-toastify";
 
 export default function ProfileFooter({ email }) {
   const navigate = useNavigate();
-  const handleLogout = () => {
-    navigate("/login");
-    console.log("Logging out...");
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      console.log("Logging out...");
+      await logout();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to logout");
+    }
   };
 
   return (

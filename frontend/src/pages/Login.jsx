@@ -1,13 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FcGoogle } from "react-icons/fc";
+import { useNavigate } from "react-router-dom";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import { login, loginWithGoogle } from "../lib/auth/index";
+import { toast } from "react-toastify";
+import { useAuth } from "../contexts/AuthContext";
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    console.log(
+      "Login useEffect - isAuthenticated:",
+      isAuthenticated,
+      "loading:",
+      loading
+    );
+    if (isAuthenticated && !loading) {
+      console.log("Navigating to home page...");
+      navigate("/");
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -18,14 +39,45 @@ const Login = () => {
   };
 
   // Handle default login
-  const handleSubmit = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setIsLoggingIn(true);
     console.log("Login form submitted:", formData);
+
+    try {
+      const response = await login(formData.email, formData.password);
+      if (response.success) {
+        console.log("Login successful:", response.user);
+      } else {
+        console.error("Error login: ", response.error);
+        toast.error("Failed to login: " + response.error);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An error occurred during login");
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   // Handle google login
-  const handleGoogleLogin = () => {
-    console.log("Google login clicked");
+  const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
+
+    try {
+      const response = await loginWithGoogle();
+      if (response.success) {
+        console.log("Google login successful:", response.user);
+      } else {
+        console.error("Error google login: ", response.error);
+        toast.error("Failed to login with Google: " + response.error);
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("An error occurred during Google login");
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   return (
@@ -37,7 +89,7 @@ const Login = () => {
         </h1>
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           {/* Email Field */}
           <div>
             <label className="block text-gray-300 text-sm font-medium mb-2">
@@ -86,9 +138,10 @@ const Login = () => {
           {/* Sign In Button */}
           <button
             type="submit"
-            className="w-full bg-[#F88F2D] text-[#12284C] font-bold py-3 px-4 rounded-md hover:bg-[#e67e26] transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#F88F2D] focus:ring-opacity-50"
+            disabled={isLoggingIn || loading}
+            className="w-full bg-[#F88F2D] text-[#12284C] font-bold py-3 px-4 rounded-md hover:bg-[#e67e26] transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#F88F2D] focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            SIGN IN
+            {isLoggingIn ? "SIGNING IN..." : "SIGN IN"}
           </button>
         </form>
 
@@ -102,10 +155,11 @@ const Login = () => {
         {/* Google Login Button */}
         <button
           onClick={handleGoogleLogin}
-          className="w-full bg-white text-gray-700 font-medium py-3 px-4 rounded-md hover:bg-gray-50 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 flex items-center justify-center gap-3"
+          disabled={isLoggingIn || loading}
+          className="w-full bg-white text-gray-700 font-medium py-3 px-4 rounded-md hover:bg-gray-50 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FcGoogle size={20} />
-          Continue with Google
+          {isLoggingIn ? "Signing in..." : "Continue with Google"}
         </button>
 
         {/* Sign Up Link */}

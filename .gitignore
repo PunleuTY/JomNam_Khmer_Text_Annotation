@@ -28,3 +28,5 @@ Thumbs.db
 # Tests
 coverage/
 *.test-results
+
+**/jomnam-service-account.json

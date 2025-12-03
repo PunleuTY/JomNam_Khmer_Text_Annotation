@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"backend/controllers"
+	"backend/middleware"
 	"backend/routes"
 
+	firebase "firebase.google.com/go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/api/option"
 )
 
 func main() {
@@ -74,6 +77,19 @@ func main() {
 		log.Println("✅ MongoDB connected successfully")
 	}
 
+	// Initialize Firebase
+	opt := option.WithCredentialsFile(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	firebaseApp, err := firebase.NewApp(context.Background(), nil, opt)
+	if err != nil {
+		log.Fatal("Error initializing Firebase app:", err)
+	}
+
+	firebaseAuth, err := firebaseApp.Auth(context.Background())
+	if err != nil {
+		log.Fatal("Error getting Firebase Auth client:", err)
+	}
+	log.Println("✅ Firebase initialized successfully")
+
 	db := client.Database(MONGODB_DB)
 	imageCollection := db.Collection(IMAGE_COLLECTION)
 	projectCollection := db.Collection(PROJECT_COLLECTION)
@@ -86,21 +102,33 @@ func main() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{CORS_ORIGIN}, // frontend origin from .env
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// ----- Setup Routes -----
-	// Image routes
-	imageGroup := router.Group("/images")
-	{
-		imageGroup.POST("/upload", controllers.UploadImages(imageCollection))
-		imageGroup.POST("/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
-	}
+	// Initialize auth controller
+	authController := controllers.NewAuthController(firebaseAuth)
 
-	// Project routes
-	routes.ProjectRoutes(router, projectCollection, imageCollection)
+	// ----- Setup Routes -----
+	// Public auth routes
+	router.POST("/auth/set-cookie", authController.SetAuthCookie)
+	router.POST("/auth/logout", authController.Logout)
+
+	// Public routes (no auth required)
+	router.POST("/images/upload", controllers.UploadImages(imageCollection))
+	router.POST("/images/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
+
+	// Protected routes (require authentication)
+	protected := router.Group("/")
+	protected.Use(middleware.FirebaseAuthMiddleware(firebaseAuth))
+	{
+		// Auth routes
+		protected.GET("/auth/me", authController.GetCurrentUser)
+
+		// Project routes
+		routes.ProjectRoutes(protected, projectCollection, imageCollection)
+	}
 
 	// Start server
 	router.Run(PORT)
