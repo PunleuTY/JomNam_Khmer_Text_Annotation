@@ -17,6 +17,10 @@ func ProjectRoutes(router *gin.Engine, projectCollection, imageCollection *mongo
 		projectGroup.DELETE("/:id", controllers.DeleteProject(projectCollection))
 		//get image by project
 		router.GET("/projects/:id/images", controllers.GetImagesByProject(imageCollection, projectCollection))
+		// get stats (total/annotated images) for a project
+		router.GET("/projects/:id/stats", controllers.GetProjectImageStats(imageCollection))
+		// get total images across all projects
+		router.GET("/projects/stats/total", controllers.GetTotalImagesAllProjects(imageCollection))
 
 	}
 }

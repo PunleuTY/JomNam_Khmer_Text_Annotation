@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import {
+  loadProjectAPI,
+  getTotalImagesAllProjectsAPI,
+  getProjectStatsAPI,
+} from "../server/saveResultAPI";
+import { deleteProjectAPI } from "../server/deleteAPI";
+import { editProjectAPI } from "../server/getProjectResult";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,40 +30,70 @@ import {
 import { useI18n } from "@/components/I18nProvider";
 import Footer from "../components/Footer";
 
-const sampleProjects = [
-  {
-    id: "1",
-    name: "Khmer Historical Documents",
-    description:
-      "Ancient Khmer manuscripts and historical texts for OCR training dataset",
-    imageCount: 255,
-    annotatedCount: 180,
-    updatedAt: "2025-10-29",
-    status: "in-progress",
-  },
-  {
-    id: "2",
-    name: "Modern Khmer Newspapers",
-    description:
-      "Contemporary newspaper articles and headlines for text detection models",
-    imageCount: 512,
-    annotatedCount: 512,
-    updatedAt: "2025-10-28",
-    status: "completed",
-  },
-];
+// Removed sampleProjects; will fetch from API
 
 export default function WorkspacePage() {
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [projects, setProjects] = useState(sampleProjects);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [totalImages, setTotalImages] = useState({
+    total_images: 0,
+    annotated_images: 0,
+  });
+  const [completionRate, setCompletionRate] = useState(0);
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    description: "",
+    status: "not-started",
+  });
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    async function fetchProjects() {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await loadProjectAPI();
+        const total = await getTotalImagesAllProjectsAPI();
+        // API returns { total_images, annotated_images } or null on error
+        const totals =
+          total && typeof total.total_images !== "undefined"
+            ? total
+            : { total_images: 0, annotated_images: 0 };
+        setTotalImages(totals);
+        setProjects(data);
+        // compute completion from freshly fetched totals (use `totals`, not state)
+        const progressValue = totals.total_images
+          ? Math.round(
+              ((totals.annotated_images || 0) / totals.total_images) * 100
+            )
+          : 0;
+        setCompletionRate(progressValue);
+        console.log(progressValue);
+      } catch (e) {
+        setError("Failed to load projects");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProjects();
+  }, []);
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase());
+      project.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       filterStatus === "all" || project.status === filterStatus;
     return matchesSearch && matchesStatus;
@@ -70,135 +107,372 @@ export default function WorkspacePage() {
     totalAnnotated: projects.reduce((sum, p) => sum + p.annotatedCount, 0),
   };
 
-  const completionRate = Math.round(
-    (stats.totalAnnotated / stats.totalImages) * 100
-  );
-
   const handleCreateProject = (newProject) => {
     setProjects([newProject, ...projects]);
   };
 
-  // Handle editing a project
+  // Handle editing a project: open edit modal
   const handleEditProject = (project) => {
-    // TODO: Implement project edit functionality
-    console.log("Edit project:", project);
+    if (!project) return;
+    setProjectToEdit(project);
+    setEditFormData({
+      name: project.name || "",
+      description: project.description || "",
+      status: project.status || "not-started",
+    });
+    setEditModalOpen(true);
   };
 
-  // Handle deleting a project
+  // Confirm edit (called from modal)
+  async function confirmEditProject() {
+    if (!projectToEdit) return;
+    setEditing(true);
+    try {
+      const response = await editProjectAPI(
+        projectToEdit.id || projectToEdit._id,
+        editFormData
+      );
+
+      if (response?.success || response?.message || response) {
+        // Update the project in the list
+        setProjects((prev) =>
+          prev.map((p) =>
+            (p.id || p._id) === (projectToEdit.id || projectToEdit._id)
+              ? { ...p, ...editFormData }
+              : p
+          )
+        );
+      } else {
+        console.error("Failed to update project", response);
+        setError("Failed to update project");
+      }
+    } catch (e) {
+      console.error("Error updating project", e);
+      setError("Error updating project");
+    } finally {
+      setEditing(false);
+      setEditModalOpen(false);
+      setProjectToEdit(null);
+      setEditFormData({ name: "", description: "", status: "not-started" });
+    }
+  }
+
+  function cancelEditProject() {
+    setEditModalOpen(false);
+    setProjectToEdit(null);
+    setEditFormData({ name: "", description: "", status: "not-started" });
+  }
+
+  // Handle deleting a project: open confirmation modal
   const handleDeleteProject = (project) => {
-    // TODO: Implement project delete functionality
-    console.log("Delete project:", project);
+    if (!project) return;
+    setProjectToDelete(project);
+    setDeleteModalOpen(true);
   };
+
+  // Confirm deletion (called from modal)
+  async function confirmDeleteProject() {
+    if (!projectToDelete) return;
+    setDeleting(true);
+    try {
+      const response = await deleteProjectAPI(
+        projectToDelete.id || projectToDelete._id
+      );
+
+      // treat a truthy response or successful call as success
+      if (
+        response === undefined ||
+        response === null ||
+        response?.success ||
+        response?.message
+      ) {
+        setProjects((prev) =>
+          prev.filter(
+            (p) =>
+              (p.id || p._id) !== (projectToDelete.id || projectToDelete._id)
+          )
+        );
+
+        // refresh global totals from server
+        try {
+          const totals = await getTotalImagesAllProjectsAPI();
+          setTotalImages(
+            totals && typeof totals.total_images !== "undefined"
+              ? totals
+              : { total_images: 0, annotated_images: 0 }
+          );
+          const progressValue =
+            totals && totals.total_images
+              ? Math.round(
+                  ((totals.annotated_images || 0) / totals.total_images) * 100
+                )
+              : 0;
+          setCompletionRate(progressValue);
+        } catch (e) {
+          console.warn("Failed to refresh totals after delete", e);
+        }
+      } else {
+        console.error("Failed to delete project", response);
+        setError("Failed to delete project");
+      }
+    } catch (e) {
+      console.error("Error deleting project", e);
+      setError("Error deleting project");
+    } finally {
+      setDeleting(false);
+      setDeleteModalOpen(false);
+      setProjectToDelete(null);
+    }
+  }
+
+  function cancelDeleteProject() {
+    setDeleteModalOpen(false);
+    setProjectToDelete(null);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <header>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 text-center">
-          <h1 className="text-3xl md:text-5xl font-cadt text-[#F88F2D] mb-3">
-            Project Workspace
-          </h1>
-          <p className="text-gray-600 text-lg">
-            {t("Manage your annotation projects and datasets")}
-          </p>
+      {/* Loading/Error indicators at top */}
+      {loading && (
+        <div className="text-center py-10 text-lg text-gray-500">
+          Loading projects...
         </div>
-      </header>
+      )}
+      {error && (
+        <div className="text-center py-10 text-lg text-red-500">{error}</div>
+      )}
+      {!loading && !error && (
+        <>
+          {/* Header Section */}
+          <header>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 text-center">
+              <h1 className="text-3xl md:text-5xl font-cadt text-[#F88F2D] mb-3">
+                Project Workspace
+              </h1>
+              <p className="text-gray-600 text-lg">
+                {t("Manage your annotation projects and datasets")}
+              </p>
+            </div>
+          </header>
 
-      {/* Project Statistics */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard
-          icon={<FolderOpen />}
-          label="Total Projects"
-          value={stats.total}
-          color="bg-slate-800"
-        />
-        <StatCard
-          icon={<Activity />}
-          label="In Progress"
-          value={stats.inProgress}
-          color="bg-amber-900"
-        />
-        <StatCard
-          icon={<CheckCircle2 />}
-          label="Completed"
-          value={stats.completed}
-          color="bg-emerald-900"
-        />
-        <StatCard
-          icon={<ImageIcon />}
-          label="Total Images"
-          value={stats.totalImages}
-          color="bg-slate-800"
-        />
-        <StatCard
-          icon={<TrendingUp />}
-          label="Completion Rate"
-          value={`${completionRate || 0}%`}
-          color="bg-slate-800"
-          sub={`${stats.totalAnnotated} annotated`}
-        />
-      </section>
-
-      {/* Search & Filter Bar */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8 flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            placeholder={t("Search your projects...")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-12 text-base border-gray-300"
-          />
-        </div>
-        <div className="relative w-56">
-          {/* Custom dropdown: button toggles menu to allow full styling of popup */}
-          <StatusDropdown
-            value={filterStatus}
-            onChange={(v) => setFilterStatus(v)}
-            options={[
-              { value: "all", label: t("All Status") },
-              { value: "in-progress", label: t("In Progress") },
-              { value: "completed", label: t("Completed") },
-              { value: "not-started", label: t("Not Started") },
-            ]}
-          />
-        </div>
-      </section>
-
-      {/* Project List */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4 mb-5">
-        {filteredProjects.length > 0 ? (
-          filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onEdit={handleEditProject}
-              onDelete={handleDeleteProject}
+          {/* Project Statistics */}
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 md:grid-cols-5 gap-4">
+            <StatCard
+              icon={<FolderOpen />}
+              label="Total Projects"
+              value={stats.total}
+              color="bg-slate-800"
             />
-          ))
-        ) : (
-          <p className="text-center text-gray-500 py-10 text-lg">
-            No projects found
-          </p>
-        )}
-      </section>
+            <StatCard
+              icon={<Activity />}
+              label="In Progress"
+              value={stats.inProgress}
+              color="bg-amber-900"
+            />
+            <StatCard
+              icon={<CheckCircle2 />}
+              label="Completed"
+              value={stats.completed}
+              color="bg-emerald-900"
+            />
+            <StatCard
+              icon={<ImageIcon />}
+              label="Total Images"
+              value={totalImages.total_images}
+              color="bg-slate-800"
+            />
+            <StatCard
+              icon={<TrendingUp />}
+              label="Completion Rate"
+              value={`${completionRate || 0}%`}
+              color="bg-slate-800"
+              sub={`${totalImages.annotated_images} annotated`}
+            />
+          </section>
 
-      {/* Floating Add Project Button */}
-      <button
-        onClick={() => setCreateDialogOpen(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110"
-      >
-        <Plus className="w-8 h-8" />
-      </button>
+          {/* Search & Filter Bar */}
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8 flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder={t("Search your projects...")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 h-12 text-base border-gray-300"
+              />
+            </div>
+            <div className="relative w-56">
+              {/* Custom dropdown: button toggles menu to allow full styling of popup */}
+              <StatusDropdown
+                value={filterStatus}
+                onChange={(v) => setFilterStatus(v)}
+                options={[
+                  { value: "all", label: t("All Status") },
+                  { value: "in-progress", label: t("In Progress") },
+                  { value: "completed", label: t("Completed") },
+                  { value: "not-started", label: t("Not Started") },
+                ]}
+              />
+            </div>
+          </section>
 
-      {/* Create Project Dialog */}
-      <CreateProjectDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onCreateProject={handleCreateProject}
-      />
-      {/* Footer removed from individual project cards */}
-      <Footer />
+          {/* Project List */}
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4 mb-5">
+            {filteredProjects.length > 0 ? (
+              filteredProjects.map((project) => (
+                <ProjectCard
+                  key={project.id || project._id}
+                  project={project}
+                  onEdit={handleEditProject}
+                  onDelete={handleDeleteProject}
+                />
+              ))
+            ) : (
+              <p className="text-center text-gray-500 py-10 text-lg">
+                No projects found
+              </p>
+            )}
+          </section>
+
+          {/* Floating Add Project Button */}
+          <button
+            onClick={() => setCreateDialogOpen(true)}
+            className="fixed bottom-8 right-8 w-16 h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110"
+          >
+            <Plus className="w-8 h-8" />
+          </button>
+
+          {/* Create Project Dialog */}
+          <CreateProjectDialog
+            open={createDialogOpen}
+            onOpenChange={setCreateDialogOpen}
+            onCreateProject={handleCreateProject}
+          />
+          {/* Delete confirmation modal */}
+          {deleteModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div
+                className="absolute inset-0 bg-black opacity-40"
+                onClick={cancelDeleteProject}
+              />
+              <div className="bg-white rounded-lg shadow-xl z-10 w-full max-w-md p-6">
+                <h3 className="text-lg font-semibold mb-2">Confirm Deletion</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  Are you sure you want to delete the project
+                  <span className="font-medium"> {projectToDelete?.name}</span>?
+                  This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={cancelDeleteProject}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={confirmDeleteProject}
+                    disabled={deleting}
+                  >
+                    {deleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit project modal */}
+          {editModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div
+                className="absolute inset-0 bg-black opacity-40"
+                onClick={cancelEditProject}
+              />
+              <div className="bg-white rounded-lg shadow-xl z-10 w-full max-w-md p-6">
+                <h3 className="text-lg font-semibold mb-4">Edit Project</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Project Name
+                    </label>
+                    <Input
+                      type="text"
+                      value={editFormData.name}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          name: e.target.value,
+                        })
+                      }
+                      placeholder="Project name"
+                      className="w-full"
+                      disabled={editing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <Input
+                      type="text"
+                      value={editFormData.description}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Project description"
+                      className="w-full"
+                      disabled={editing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          status: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#12284c]"
+                      disabled={editing}
+                    >
+                      <option value="not-started">Not Started</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={cancelEditProject}
+                    disabled={editing}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-[#12284c] hover:bg-[#0a1f38] text-white"
+                    onClick={confirmEditProject}
+                    disabled={editing}
+                  >
+                    {editing ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Footer removed from individual project cards */}
+          <Footer />
+        </>
+      )}
     </div>
   );
 }
@@ -215,14 +489,43 @@ function StatCard({ icon, label, value, color, sub }) {
 }
 
 function ProjectCard({ project, onEdit, onDelete }) {
-  const progress = project.imageCount
-    ? Math.round((project.annotatedCount / project.imageCount) * 100)
-    : 0;
+  const [totalStats, setTotalStats] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [progress, setProgress] = useState(0);
+
   const statusColors = {
     "in-progress": "bg-orange-100 text-orange-700 border-orange-300",
     completed: "bg-emerald-100 text-emerald-700 border-emerald-300",
     "not-started": "bg-gray-100 text-gray-700 border-gray-300",
   };
+
+  async function fetchStats(id) {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getProjectStatsAPI(id);
+      setTotalStats(data);
+      // compute progress from the fetched data (use `data`, not state `totalStats`)
+      const progressValue =
+        data && data.total_images
+          ? Math.round(((data.annotated_images || 0) / data.total_images) * 100)
+          : 0;
+      setProgress(progressValue);
+    } catch (e) {
+      setError("Failed to fetch project stats");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // fetch stats when the card mounts or project.id changes
+  useEffect(() => {
+    if (!project || !project.id) return;
+    setProgress(0);
+    fetchStats(project.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project && project.id]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -260,17 +563,24 @@ function ProjectCard({ project, onEdit, onDelete }) {
       <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
         <div className="flex items-center gap-2">
           <ImageIcon className="w-4 h-4" />
-          <span className="font-semibold">{project.imageCount}</span> Images
+          <span className="font-semibold">
+            {loading
+              ? "..."
+              : totalStats?.total_images ?? project.imageCount ?? 0}
+          </span>{" "}
+          Images
         </div>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
-          <span className="font-semibold">{project.annotatedCount}</span>{" "}
+          <span className="font-semibold">
+            {loading ? "..." : totalStats?.annotated_images ?? 0}
+          </span>{" "}
           Annotated
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           <span>
-            Updated {new Date(project.updatedAt).toLocaleDateString()}
+            Updated {new Date(project.updated_at).toLocaleDateString()}
           </span>
         </div>
       </div>
@@ -284,7 +594,7 @@ function ProjectCard({ project, onEdit, onDelete }) {
           </div>
         </div>
         <span className="text-sm font-bold w-12 text-right">{progress}%</span>
-        <Link to={`/annotate?project=${project.id}`}>
+        <Link to={`/Annotate/${project.id}`}>
           <Button className="bg-slate-800 hover:bg-slate-900 text-white gap-2">
             Open <ArrowRight className="w-4 h-4" />
           </Button>

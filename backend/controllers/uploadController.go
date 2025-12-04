@@ -400,6 +400,8 @@ func SaveGroundTruth(imageCollection *mongo.Collection) gin.HandlerFunc {
 	}
 }
 
+
+
 // // updated new
 // // SaveGroundTruth updates annotations for existing image without moving the file
 // func SaveGroundTruth(imageCollection *mongo.Collection) gin.HandlerFunc {
