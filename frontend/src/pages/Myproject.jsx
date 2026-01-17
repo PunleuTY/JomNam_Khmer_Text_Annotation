@@ -20,38 +20,65 @@ import {
   Edit3,
   Trash2,
 } from "lucide-react";
+import { MdSmsFailed } from "react-icons/md";
 import { useI18n } from "@/components/I18nProvider";
 import Footer from "../components/Footer";
+import { toast } from "react-toastify";
 
-const sampleProjects = [
-  {
-    id: "1",
-    name: "Khmer Historical Documents",
-    description:
-      "Ancient Khmer manuscripts and historical texts for OCR training dataset",
-    imageCount: 255,
-    annotatedCount: 180,
-    updatedAt: "2025-10-29",
-    status: "in-progress",
-  },
-  {
-    id: "2",
-    name: "Modern Khmer Newspapers",
-    description:
-      "Contemporary newspaper articles and headlines for text detection models",
-    imageCount: 512,
-    annotatedCount: 512,
-    updatedAt: "2025-10-28",
-    status: "completed",
-  },
-];
+// Import API functions
+import { loadProjectAPI, createProjectAPI } from "@/server/saveResultAPI";
+import { editProjectAPI } from "@/server/getProjectResult";
+import { deleteProjectAPI } from "@/server/deleteAPI";
 
 export default function WorkspacePage() {
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [projects, setProjects] = useState(sampleProjects);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    description: "",
+  });
+
+  // Load projects on component mount
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const projectsData = await loadProjectAPI();
+      // Transform backend data to match frontend format
+      const transformedProjects = projectsData.map((project) => ({
+        id: project._id || project.id,
+        name: project.name,
+        description: project.description || "",
+        imageCount: 0, // Will be updated when we have image count API
+        annotatedCount: 0,
+        updatedAt: project.updated_at
+          ? new Date(project.updated_at).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        status:
+          project.status === "active"
+            ? "in-progress"
+            : project.status || "not-started",
+      }));
+      setProjects(transformedProjects);
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+      setError("Failed to load projects. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
@@ -74,20 +101,90 @@ export default function WorkspacePage() {
     (stats.totalAnnotated / stats.totalImages) * 100
   );
 
-  const handleCreateProject = (newProject) => {
-    setProjects([newProject, ...projects]);
+  const handleCreateProject = async (newProjectData) => {
+    try {
+      await createProjectAPI(newProjectData.name, newProjectData.description);
+      // Reload projects to get the updated list
+      await loadProjects();
+      toast.success("Project created successfully!");
+    } catch (err) {
+      console.error("Failed to create project:", err);
+      const errorMessage = "Failed to create project. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
   };
 
   // Handle editing a project
   const handleEditProject = (project) => {
-    // TODO: Implement project edit functionality
-    console.log("Edit project:", project);
+    setSelectedProject(project);
+    setEditFormData({ name: project.name, description: project.description });
+    setEditModalOpen(true);
   };
 
   // Handle deleting a project
   const handleDeleteProject = (project) => {
-    // TODO: Implement project delete functionality
-    console.log("Delete project:", project);
+    setSelectedProject(project);
+    setDeleteModalOpen(true);
+  };
+
+  // Save edited project
+  const handleSaveEdit = async () => {
+    if (!selectedProject) return;
+
+    try {
+      await editProjectAPI(selectedProject.id, {
+        name: editFormData.name,
+        description: editFormData.description,
+        status:
+          selectedProject.status === "in-progress"
+            ? "active"
+            : selectedProject.status,
+      });
+
+      // Update local state
+      const updatedProjects = projects.map((project) =>
+        project.id === selectedProject.id
+          ? {
+              ...project,
+              name: editFormData.name,
+              description: editFormData.description,
+            }
+          : project
+      );
+      setProjects(updatedProjects);
+      setEditModalOpen(false);
+      setSelectedProject(null);
+      toast.success("Project updated successfully!");
+    } catch (err) {
+      console.error("Failed to update project:", err);
+      const errorMessage = "Failed to update project. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
+  };
+
+  // Confirm delete project
+  const handleConfirmDelete = async () => {
+    if (!selectedProject) return;
+
+    try {
+      await deleteProjectAPI(selectedProject.id);
+
+      // Update local state
+      const updatedProjects = projects.filter(
+        (project) => project.id !== selectedProject.id
+      );
+      setProjects(updatedProjects);
+      setDeleteModalOpen(false);
+      setSelectedProject(null);
+      toast.success("Project deleted successfully!");
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+      const errorMessage = "Failed to delete project. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
   };
 
   return (
@@ -165,9 +262,35 @@ export default function WorkspacePage() {
         </div>
       </section>
 
+      {/* Error Message */}
+      {error && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <MdSmsFailed />
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setError(null);
+                loadProjects();
+              }}
+              className="ml-auto"
+            >
+              Retry
+            </Button>
+          </div>
+        </section>
+      )}
+
       {/* Project List */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4 mb-5">
-        {filteredProjects.length > 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
+            <p className="text-gray-500 text-lg">Loading projects...</p>
+          </div>
+        ) : filteredProjects.length > 0 ? (
           filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}
@@ -177,9 +300,28 @@ export default function WorkspacePage() {
             />
           ))
         ) : (
-          <p className="text-center text-gray-500 py-10 text-lg">
-            No projects found
-          </p>
+          <div className="text-center py-20">
+            <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg mb-2">
+              {searchQuery || filterStatus !== "all"
+                ? "No projects match your search"
+                : "No projects yet"}
+            </p>
+            <p className="text-gray-400 text-sm mb-6">
+              {searchQuery || filterStatus !== "all"
+                ? "Try adjusting your search or filter criteria"
+                : "Create your first project to get started"}
+            </p>
+            {!searchQuery && filterStatus === "all" && (
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Project
+              </Button>
+            )}
+          </div>
         )}
       </section>
 
@@ -197,6 +339,130 @@ export default function WorkspacePage() {
         onOpenChange={setCreateDialogOpen}
         onCreateProject={handleCreateProject}
       />
+
+      {/* Edit Project Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-blue-500/10"
+            onClick={() => setEditModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Edit Project
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="edit-name"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Project Name
+                </label>
+                <Input
+                  id="edit-name"
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, name: e.target.value })
+                  }
+                  placeholder="Enter project name"
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-description"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="edit-description"
+                  value={editFormData.description}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Enter project description"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setEditModalOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                disabled={!editFormData.name.trim()}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-blue-500/10"
+            onClick={() => setDeleteModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+              Delete Project
+            </h2>
+
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">"{selectedProject?.name}"</span>?
+              This action cannot be undone and all associated data will be
+              permanently removed.
+            </p>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteModalOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmDelete}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+              >
+                Delete Project
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer removed from individual project cards */}
       <Footer />
     </div>
@@ -284,7 +550,7 @@ function ProjectCard({ project, onEdit, onDelete }) {
           </div>
         </div>
         <span className="text-sm font-bold w-12 text-right">{progress}%</span>
-        <Link to={`/annotate?project=${project.id}`}>
+        <Link to={`/Annotate/${project.id}`}>
           <Button className="bg-slate-800 hover:bg-slate-900 text-white gap-2">
             Open <ArrowRight className="w-4 h-4" />
           </Button>

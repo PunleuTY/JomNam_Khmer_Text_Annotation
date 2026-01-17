@@ -86,3 +86,25 @@ export const saveResultAPI = async (resultData) => {
     };
   }
 };
+
+
+// Get project details by ID
+export const getProjectByIdAPI = async (id) => {
+  try {
+    const res = await fetch(`${BACKEND_PROJECT_URL}/${id}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! Status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data.project || data; // handle {project: {...}} or direct object
+  } catch (e) {
+    console.error("Failed to fetch project details:", e.message);
+    return null; // fallback
+  }
+};
+
