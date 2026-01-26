@@ -8,6 +8,7 @@ import {
 } from "../server/saveResultAPI";
 import { deleteProjectAPI } from "../server/deleteAPI";
 import { editProjectAPI } from "../server/getProjectResult";
+import { createProjectAPI } from "@/server/saveResultAPI";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,9 +32,6 @@ import { MdSmsFailed } from "react-icons/md";
 import { useI18n } from "@/components/I18nProvider";
 import Footer from "../components/Footer";
 import { toast } from "react-toastify";
-import { loadProjectAPI, createProjectAPI } from "@/server/saveResultAPI";
-import { editProjectAPI } from "@/server/getProjectResult";
-import { deleteProjectAPI } from "@/server/deleteAPI";
 
 export default function WorkspacePage() {
   const { t } = useI18n();
@@ -42,11 +40,12 @@ export default function WorkspacePage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [totalImages, setTotalImages] = useState({
     total_images: 0,
     annotated_images: 0,
   });
+  const [error, setError] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [completionRate, setCompletionRate] = useState(0);
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -65,7 +64,6 @@ export default function WorkspacePage() {
   useEffect(() => {
     async function fetchProjects() {
       setLoading(true);
-      setError("");
       try {
         const data = await loadProjectAPI();
         const total = await getTotalImagesAllProjectsAPI();
@@ -79,27 +77,19 @@ export default function WorkspacePage() {
         // compute completion from freshly fetched totals (use `totals`, not state)
         const progressValue = totals.total_images
           ? Math.round(
-              ((totals.annotated_images || 0) / totals.total_images) * 100
+              ((totals.annotated_images || 0) / totals.total_images) * 100,
             )
           : 0;
         setCompletionRate(progressValue);
         console.log(progressValue);
-      } catch (e) {
-        setError("Failed to load projects");
+      } catch (err) {
+        console.error("Failed to load projects:", err);
       } finally {
         setLoading(false);
       }
     }
     fetchProjects();
   }, []);
-  const [error, setError] = useState(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [editFormData, setEditFormData] = useState({
-    name: "",
-    description: "",
-  });
 
   // Load projects on component mount
   useEffect(() => {
@@ -152,12 +142,12 @@ export default function WorkspacePage() {
     totalAnnotated: projects.reduce((sum, p) => sum + p.annotatedCount, 0),
   };
 
-  const handleCreateProject = (newProject) => {
-    setProjects([newProject, ...projects]);}
-    
-  const completionRate = Math.round(
-    (stats.totalAnnotated / stats.totalImages) * 100
-  );
+  // const handleCreateProject = (newProject) => {
+  //   setProjects([newProject, ...projects]);}
+
+  // const completionRate = Math.round(
+  //   (stats.totalAnnotated / stats.totalImages) * 100
+  // );
 
   const handleCreateProject = async (newProjectData) => {
     try {
@@ -194,7 +184,7 @@ export default function WorkspacePage() {
     try {
       const response = await editProjectAPI(
         projectToEdit.id || projectToEdit._id,
-        editFormData
+        editFormData,
       );
 
       if (response?.success || response?.message || response) {
@@ -203,15 +193,15 @@ export default function WorkspacePage() {
           prev.map((p) =>
             (p.id || p._id) === (projectToEdit.id || projectToEdit._id)
               ? { ...p, ...editFormData }
-              : p
-          )
+              : p,
+          ),
         );
       } else {
         console.error("Failed to update project", response);
         setError("Failed to update project");
       }
-    } catch (e) {
-      console.error("Error updating project", e);
+    } catch (err) {
+      console.error("Error updating project", err);
       setError("Error updating project");
     } finally {
       setEditing(false);
@@ -258,7 +248,7 @@ export default function WorkspacePage() {
               name: editFormData.name,
               description: editFormData.description,
             }
-          : project
+          : project,
       );
       setProjects(updatedProjects);
       setEditModalOpen(false);
@@ -281,7 +271,7 @@ export default function WorkspacePage() {
 
       // Update local state
       const updatedProjects = projects.filter(
-        (project) => project.id !== selectedProject.id
+        (project) => project.id !== selectedProject.id,
       );
       setProjects(updatedProjects);
       setDeleteModalOpen(false);
@@ -301,7 +291,7 @@ export default function WorkspacePage() {
     setDeleting(true);
     try {
       const response = await deleteProjectAPI(
-        projectToDelete.id || projectToDelete._id
+        projectToDelete.id || projectToDelete._id,
       );
 
       // treat a truthy response or successful call as success
@@ -314,8 +304,8 @@ export default function WorkspacePage() {
         setProjects((prev) =>
           prev.filter(
             (p) =>
-              (p.id || p._id) !== (projectToDelete.id || projectToDelete._id)
-          )
+              (p.id || p._id) !== (projectToDelete.id || projectToDelete._id),
+          ),
         );
 
         // refresh global totals from server
@@ -324,12 +314,12 @@ export default function WorkspacePage() {
           setTotalImages(
             totals && typeof totals.total_images !== "undefined"
               ? totals
-              : { total_images: 0, annotated_images: 0 }
+              : { total_images: 0, annotated_images: 0 },
           );
           const progressValue =
             totals && totals.total_images
               ? Math.round(
-                  ((totals.annotated_images || 0) / totals.total_images) * 100
+                  ((totals.annotated_images || 0) / totals.total_images) * 100,
                 )
               : 0;
           setCompletionRate(progressValue);
@@ -340,8 +330,8 @@ export default function WorkspacePage() {
         console.error("Failed to delete project", response);
         setError("Failed to delete project");
       }
-    } catch (e) {
-      console.error("Error deleting project", e);
+    } catch (err) {
+      console.error("Error deleting project", err);
       setError("Error deleting project");
     } finally {
       setDeleting(false);
@@ -594,135 +584,9 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {/* Footer removed from individual project cards */}
           <Footer />
         </>
       )}
-      </header>
-
-      {/* Project Statistics */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard
-          icon={<FolderOpen />}
-          label="Total Projects"
-          value={stats.total}
-          color="bg-slate-800"
-        />
-        <StatCard
-          icon={<Activity />}
-          label="In Progress"
-          value={stats.inProgress}
-          color="bg-amber-900"
-        />
-        <StatCard
-          icon={<CheckCircle2 />}
-          label="Completed"
-          value={stats.completed}
-          color="bg-emerald-900"
-        />
-        <StatCard
-          icon={<ImageIcon />}
-          label="Total Images"
-          value={stats.totalImages}
-          color="bg-slate-800"
-        />
-        <StatCard
-          icon={<TrendingUp />}
-          label="Completion Rate"
-          value={`${completionRate || 0}%`}
-          color="bg-slate-800"
-          sub={`${stats.totalAnnotated} annotated`}
-        />
-      </section>
-
-      {/* Search & Filter Bar */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8 flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            placeholder={t("Search your projects...")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-12 text-base border-gray-300"
-          />
-        </div>
-        <div className="relative w-56">
-          {/* Custom dropdown: button toggles menu to allow full styling of popup */}
-          <StatusDropdown
-            value={filterStatus}
-            onChange={(v) => setFilterStatus(v)}
-            options={[
-              { value: "all", label: t("All Status") },
-              { value: "in-progress", label: t("In Progress") },
-              { value: "completed", label: t("Completed") },
-              { value: "not-started", label: t("Not Started") },
-            ]}
-          />
-        </div>
-      </section>
-
-      {/* Error Message */}
-      {error && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 mb-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-            <MdSmsFailed />
-            <span>{error}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setError(null);
-                loadProjects();
-              }}
-              className="ml-auto"
-            >
-              Retry
-            </Button>
-          </div>
-        </section>
-      )}
-
-      {/* Project List */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4 mb-5">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
-            <p className="text-gray-500 text-lg">Loading projects...</p>
-          </div>
-        ) : filteredProjects.length > 0 ? (
-          filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onEdit={handleEditProject}
-              onDelete={handleDeleteProject}
-            />
-          ))
-        ) : (
-          <div className="text-center py-20">
-            <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg mb-2">
-              {searchQuery || filterStatus !== "all"
-                ? "No projects match your search"
-                : "No projects yet"}
-            </p>
-            <p className="text-gray-400 text-sm mb-6">
-              {searchQuery || filterStatus !== "all"
-                ? "Try adjusting your search or filter criteria"
-                : "Create your first project to get started"}
-            </p>
-            {!searchQuery && filterStatus === "all" && (
-              <Button
-                onClick={() => setCreateDialogOpen(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Project
-              </Button>
-            )}
-          </div>
-        )}
-      </section>
 
       {/* Floating Add Project Button */}
       <button
@@ -731,14 +595,12 @@ export default function WorkspacePage() {
       >
         <Plus className="w-8 h-8" />
       </button>
-
       {/* Create Project Dialog */}
       <CreateProjectDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCreateProject={handleCreateProject}
       />
-
       {/* Edit Project Modal */}
       {editModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -816,7 +678,6 @@ export default function WorkspacePage() {
           </div>
         </div>
       )}
-
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -861,9 +722,6 @@ export default function WorkspacePage() {
           </div>
         </div>
       )}
-
-      {/* Footer removed from individual project cards */}
-      <Footer />
     </div>
   );
 }
@@ -882,7 +740,6 @@ function StatCard({ icon, label, value, color, sub }) {
 function ProjectCard({ project, onEdit, onDelete }) {
   const [totalStats, setTotalStats] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
 
   const statusColors = {
@@ -893,7 +750,6 @@ function ProjectCard({ project, onEdit, onDelete }) {
 
   async function fetchStats(id) {
     setLoading(true);
-    setError("");
     try {
       const data = await getProjectStatsAPI(id);
       setTotalStats(data);
@@ -903,8 +759,8 @@ function ProjectCard({ project, onEdit, onDelete }) {
           ? Math.round(((data.annotated_images || 0) / data.total_images) * 100)
           : 0;
       setProgress(progressValue);
-    } catch (e) {
-      setError("Failed to fetch project stats");
+    } catch (err) {
+      console.error("Failed to fetch project stats:", err);
     } finally {
       setLoading(false);
     }
@@ -957,14 +813,14 @@ function ProjectCard({ project, onEdit, onDelete }) {
           <span className="font-semibold">
             {loading
               ? "..."
-              : totalStats?.total_images ?? project.imageCount ?? 0}
+              : (totalStats?.total_images ?? project.imageCount ?? 0)}
           </span>{" "}
           Images
         </div>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
           <span className="font-semibold">
-            {loading ? "..." : totalStats?.annotated_images ?? 0}
+            {loading ? "..." : (totalStats?.annotated_images ?? 0)}
           </span>{" "}
           Annotated
         </div>
