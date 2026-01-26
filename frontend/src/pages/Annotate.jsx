@@ -37,7 +37,10 @@ import { ExportDialog } from "@/components/export-dialog";
 import { uploadImages, saveGroundTruth } from "@/server/sendImageAPI";
 import CreateProjectForm from "@/components/CreateProjectForm";
 import { ImageUploader } from "@/components/image-uploader";
-import { getImageByProjectAPI } from "@/server/saveResultAPI";
+import {
+  getImageByProjectAPI,
+  getProjectByIdAPI,
+} from "@/server/saveResultAPI";
 import { useShortcuts } from "../lib/userShortcuts.js";
 import { GalleryView } from "@/components/GalleryView";
 import ReusableTable from "../components/ui/myproject.jsx";
@@ -73,6 +76,8 @@ const Annotate = () => {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [project, setProject] = useState(null);
+  const [projectLoading, setProjectLoading] = useState(false);
   const [batchInfo, setBatchInfo] = useState({
     running: false,
     current: 0,
@@ -95,8 +100,19 @@ const Annotate = () => {
   // --- Load Project if Exists ---
   useEffect(() => {
     console.log("corrent P:", CurrentProjectContext);
-    const fetchImages = async () => {
+
+    const fetchProjectData = async () => {
+      if (!id) return;
+
+      setProjectLoading(true);
       try {
+        // Load project details
+        const projectData = await getProjectByIdAPI(id);
+        if (projectData) {
+          setProject(projectData);
+        }
+
+        // Load project images
         const data = await getImageByProjectAPI(id);
         if (data) {
           const processedImages = data.map((img) => ({
@@ -117,14 +133,13 @@ const Annotate = () => {
           setImages(processedImages);
         }
       } catch (error) {
-        console.error("Failed to fetch images in useEffect:", error);
+        console.error("Failed to fetch project data:", error);
+      } finally {
+        setProjectLoading(false);
       }
     };
 
-    if (id) {
-      // Prevents the API from being called on initial render if context is null
-      fetchImages();
-    }
+    fetchProjectData();
   }, [id]);
 
   const fetchSaveGroundTruth = async () => {
@@ -132,12 +147,32 @@ const Annotate = () => {
     const file_name = currentImage ? currentImage.name : "unknown.png";
     setSaveLoading(true);
     try {
-      const data = await saveGroundTruth(file_name, id, currentId, ann);
-      console.log("Fetched saveimages:", data);
-      setSuccessMsg("Project save successfully!");
+      // If we have a current image, save its annotations
+      if (currentId && annotations[currentId]) {
+        const ann = annotations[currentId] || [];
+        const file_name = currentImage ? currentImage.name : "unknown.png";
+        const data = await saveGroundTruth(file_name, id, currentId, ann);
+      }
+      
+      // Also save all other images' annotations if they exist
+      for (const [imageId, anns] of Object.entries(annotations)) {
+        if (imageId !== currentId && anns && anns.length > 0) {
+          const img = images.find(i => i.id === imageId);
+          if (img) {
+            await saveGroundTruth(img.name, id, imageId, anns);
+          }
+        }
+      }
+      
+      // Update localStorage to keep it in sync with database
+      saveProject({ images, annotations, currentId, lang });
+    
+      setSuccessMsg("Project saved successfully!");
       setTimeout(() => setSuccessMsg(""), 2000);
     } catch (error) {
-      console.error("Failed to fetch images in useEffect:", error);
+
+      setSuccessMsg("Save failed!");
+      setTimeout(() => setSuccessMsg(""), 2000);
     } finally {
       setSaveLoading(false);
     }
@@ -429,8 +464,46 @@ const Annotate = () => {
 
   return (
     <div className="min-h-full bg-gray-50">
+      {/* Back Navigation */}
+      {project && (
+        <div className="px-6 pt-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/project")}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Projects
+          </Button>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex justify-center px-6 pt-6">
-        <h1 className="text-5xl text-[#F88F2D] font-cadt pb-5">My Workspace</h1>
+        {projectLoading ? (
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
+            <h1 className="text-5xl text-[#F88F2D] font-cadt pb-5">
+              Loading...
+            </h1>
+          </div>
+        ) : project ? (
+          <div className="text-center">
+            <h1 className="text-5xl text-[#F88F2D] font-cadt pb-2">
+              {project.name}
+            </h1>
+            {project.description && (
+              <p className="text-gray-600 text-lg pb-3">
+                {project.description}
+              </p>
+            )}
+            <p className="text-sm text-gray-500 mb-4">Annotation Workspace</p>
+          </div>
+        ) : (
+          <h1 className="text-5xl text-[#F88F2D] font-cadt pb-5">
+            My Workspace
+          </h1>
+        )}
       </div>
       {!CurrentProjectContext ? (
         <CreateProjectForm
@@ -834,6 +907,7 @@ const Annotate = () => {
                     onUpdate={setAnnotations}
                     runOcr={runOcr}
                     ocrLoading={ocrLoading}
+                    onSave={fetchSaveGroundTruth}
                   />
                 </TabsContent>
               </Tabs>
@@ -865,3 +939,4 @@ const Annotate = () => {
 };
 
 export default Annotate;
+

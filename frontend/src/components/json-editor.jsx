@@ -32,6 +32,7 @@ export function JsonEditor({
   currentId,
   onUpdate,
   runOcr,
+  onSave,
 }) {
   const { t } = useI18n();
   const [viewMode, setViewMode] = React.useState("current"); // "current" | "all"
@@ -39,6 +40,7 @@ export function JsonEditor({
   const [error, setError] = React.useState(null);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [busy, setBusy] = React.useState(true);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
 
   React.useEffect(() => {
     if (Object.keys(annotations).length === 0) {
@@ -162,6 +164,16 @@ export function JsonEditor({
 
       setHasChanges(false);
       setError(null);
+      
+      // Call the save function to persist to database
+      if (onSave) {
+        onSave();
+      }
+      
+      // Show success message
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+      
     } catch (e) {
       setError(e.message || t("json.parseError"));
     }
@@ -176,6 +188,16 @@ export function JsonEditor({
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(jsonText);
+      // Show success feedback
+      const originalText = document.activeElement?.textContent;
+      if (document.activeElement) {
+        const btn = document.activeElement;
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Copied!';
+        setTimeout(() => {
+          btn.innerHTML = originalHTML;
+        }, 2000);
+      }
     } catch (e) {
       // Fallback for older browsers
       const textArea = document.createElement("textarea");
@@ -232,7 +254,16 @@ export function JsonEditor({
                   {t("Unsaved Changes")}
                 </Badge>
               )}
-              {!error && !hasChanges && (
+              {saveSuccess && (
+                <Badge
+                  variant="secondary"
+                  className="text-green-700 bg-green-100"
+                >
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Saved!
+                </Badge>
+              )}
+              {!error && !hasChanges && !saveSuccess && (
                 <Badge
                   variant="secondary"
                   className="text-green-700 bg-green-100"
@@ -251,26 +282,38 @@ export function JsonEditor({
               <Play className="w-4 h-4 mr-2" />
               {t("Run Ocr")}
             </Button>
-            <Button variant="outline" size="sm" onClick={copyToClipboard}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={(e) => {
+                e.preventDefault();
+                copyToClipboard();
+              }}
+              type="button"
+            >
               <Copy className="w-4 h-4 mr-2" />
-              {t("Copy")}
+              {t("Copy") || "Copy"}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={resetChanges}
               disabled={!hasChanges}
+              type="button"
             >
               <RotateCcw className="w-4 h-4 mr-2" />
-              {t("Reset")}
+              {t("Reset") || "Reset"}
             </Button>
             <Button
-              onClick={validateAndApply}
-              disabled={!hasChanges}
+              onClick={(e) => {
+                e.preventDefault();
+                validateAndApply();
+              }}
               className="bg-emerald-600 hover:bg-emerald-700"
+              type="button"
             >
               <Save className="w-4 h-4 mr-2" />
-              {t("Save")}
+              Save
             </Button>
           </div>
         </div>
@@ -315,4 +358,5 @@ JsonEditor.defaultProps = {
   annotations: {},
   currentId: null,
   onUpdate: () => {},
+  onSave: null,
 };
