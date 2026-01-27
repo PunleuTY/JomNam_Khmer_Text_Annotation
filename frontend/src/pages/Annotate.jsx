@@ -24,7 +24,7 @@ import {
   GalleryVerticalEnd,
   Redo,
   FolderOpen,
-  Edit3,
+  Edit3
 } from "lucide-react";
 
 import { JsonEditor } from "@/components/json-editor";
@@ -528,6 +528,7 @@ const Annotate = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      // onClick={handleEditProject}
                       className="h-8 w-8 p-0 border-gray-300 hover:border-[#F88F2D] hover:text-[#F88F2D]"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -535,6 +536,7 @@ const Annotate = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      // onClick={handleDeleteProject}
                       className="h-8 w-8 p-0 border-gray-300 hover:border-red-500 hover:text-red-500"
                     >
                       <Trash2 className="w-4 h-4" />

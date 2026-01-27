@@ -189,3 +189,63 @@ func GetImagesByProject(imageCollection *mongo.Collection, projectCollection *mo
 		c.JSON(http.StatusOK, images)
 	}
 }
+
+// GetProjectImageStats returns total images and annotated images count for a project
+func GetProjectImageStats(imageCollection *mongo.Collection) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		projectID := c.Param("id")
+
+		objID, err := primitive.ObjectIDFromHex(projectID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+			return
+		}
+
+		// total images for the project
+		totalFilter := bson.M{"project_id": objID}
+		totalCount, err := imageCollection.CountDocuments(context.Background(), totalFilter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total images"})
+			return
+		}
+
+		// annotated images: images with at least one annotation
+		annotatedFilter := bson.M{"project_id": objID, "annotations.0": bson.M{"$exists": true}}
+		annotatedCount, err := imageCollection.CountDocuments(context.Background(), annotatedFilter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count annotated images"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"project_id": projectID,
+			"total_images": totalCount,
+			"annotated_images": annotatedCount,
+		})
+	}
+}
+
+// GetTotalImagesAllProjects returns total images and annotated images across all projects
+func GetTotalImagesAllProjects(imageCollection *mongo.Collection) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// total images across all projects
+		totalCount, err := imageCollection.CountDocuments(context.Background(), bson.M{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total images"})
+			return
+		}
+
+		// annotated images across all projects: images with at least one annotation
+		annotatedFilter := bson.M{"annotations.0": bson.M{"$exists": true}}
+		annotatedCount, err := imageCollection.CountDocuments(context.Background(), annotatedFilter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count annotated images"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"total_images": totalCount,
+			"annotated_images": annotatedCount,
+		})
+	}
+}

@@ -28,3 +28,4 @@ Thumbs.db
 # Tests
 coverage/
 *.test-results
+backend\firebase\jomnam-service-account.json
