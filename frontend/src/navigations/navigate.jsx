@@ -6,7 +6,7 @@ import { TbLogout2 } from "react-icons/tb";
 import { HiMenuAlt3, HiX } from "react-icons/hi";
 import { useState } from "react";
 import NewLogo from "../assets/JomNam_New_Logo1.png";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const Sidebar = () => {
   const navigate = useNavigate();

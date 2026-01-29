@@ -3,14 +3,14 @@ import ProfileHeader from "../components/ui/Profile/ProfileHeader.jsx";
 import AccountInformation from "../components/ui/Profile/AccountInformation.jsx";
 import RecentAnnotations from "../components/ui/Profile/RecentAnnotation.jsx";
 import ProfileFooter from "../components/ui/Profile/ProfileFooter.jsx";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Profile() {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
 
   // Use real user data from Firebase
-  const userData = {
+  const mockUserData = {
     name: user?.displayName || "User",
     username: user?.email?.split("@")[0] || "user",
     bio: "Data annotation specialist passionate about creating high-quality labeled datasets for AI applications.",
@@ -27,6 +27,7 @@ export default function Profile() {
     organization: "CADT",
     photoURL: user?.photoURL,
   };
+  const [userData, setUserData] = useState(mockUserData);
 
   const recentAnnotations = [
     {
@@ -90,7 +91,7 @@ export default function Profile() {
           <RecentAnnotations annotations={recentAnnotations} />
         </div>
 
-        <ProfileFooter email="support@jomnam.com" />
+        <ProfileFooter email={userData.email} />
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { login, loginWithGoogle } from "../lib/auth/index";
 import { toast } from "react-toastify";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ const Login = () => {
       "Login useEffect - isAuthenticated:",
       isAuthenticated,
       "loading:",
-      loading
+      loading,
     );
     if (isAuthenticated && !loading) {
       console.log("Navigating to home page...");

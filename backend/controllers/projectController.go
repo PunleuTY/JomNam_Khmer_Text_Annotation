@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -13,239 +14,374 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// CreateProject creates a new project
+const dbTimeout = 10 * time.Second
+
+// CreateProject creates a new project in the database.
+//
+// Request body:
+//   - name (required): Project name
+//   - description (optional): Project description
+//   - lang (optional): Language code (e.g., "khm" for Khmer)
+//
+// Response:
+//   - Success: { "project": <project object> }
+//   - Error: { "error": "<error message>" }
 func CreateProject(projectCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req struct {
-			Name        string `json:"name" binding:"required"`
-			Description string `json:"description"`
-			Lang        string `json:"lang"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+    return func(c *gin.Context) {
+        var req struct {
+            Name        string `json:"name" binding:"required"`
+            Description string `json:"description"`
+            Lang        string `json:"lang"`
+        }
 
-		project := models.Project{
-			Name:        req.Name,
-			Description: req.Description,
-			Status:      "active",
-			Lang:        req.Lang,
-			TS:          time.Now().Unix(),
-			CreatedAt:   time.Now(),
-		}
+        if err := c.ShouldBindJSON(&req); err != nil {
+            log.Printf("CreateProject: Invalid request body - %v", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-		res, err := projectCollection.InsertOne(context.Background(), project)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
-			return
-		}
-		project.ID = res.InsertedID.(primitive.ObjectID)
+        // Create new project document
+        project := models.Project{
+            Name:        req.Name,
+            Description: req.Description,
+            Status:      "active",
+            Lang:        req.Lang,
+            TS:          time.Now().Unix(),
+            CreatedAt:   time.Now(),
+        }
 
-		c.JSON(http.StatusOK, gin.H{"project": project})
-	}
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
+
+        // Insert project into database
+        res, err := projectCollection.InsertOne(ctx, project)
+        if err != nil {
+            log.Printf("CreateProject: Failed to insert project - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
+            return
+        }
+
+        // Set the inserted ID
+        project.ID = res.InsertedID.(primitive.ObjectID)
+
+        log.Printf("CreateProject: Project created with ID %s", project.ID.Hex())
+        c.JSON(http.StatusOK, gin.H{"project": project})
+    }
 }
 
-// GetProjects returns all projects
+// GetProjects retrieves all projects from the database.
+//
+// Response:
+//   - Success: { "projects": [<project objects>] }
+//   - Error: { "error": "<error message>" }
 func GetProjects(projectCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cursor, err := projectCollection.Find(context.Background(), bson.M{})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
-			return
-		}
-		defer cursor.Close(context.Background())
+    return func(c *gin.Context) {
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
 
-		projects := []models.Project{}
-		for cursor.Next(context.Background()) {
-			var p models.Project
-			cursor.Decode(&p)
-			projects = append(projects, p)
-		}
+        // Query all projects
+        cursor, err := projectCollection.Find(ctx, bson.M{})
+        if err != nil {
+            log.Printf("GetProjects: Failed to fetch projects - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
+            return
+        }
+        defer cursor.Close(ctx)
 
-		c.JSON(http.StatusOK, gin.H{"projects": projects})
-	}
+        // Decode all projects
+        projects := []models.Project{}
+        if err := cursor.All(ctx, &projects); err != nil {
+            log.Printf("GetProjects: Failed to decode projects - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode projects"})
+            return
+        }
+
+        log.Printf("GetProjects: Retrieved %d projects", len(projects))
+        c.JSON(http.StatusOK, gin.H{"projects": projects})
+    }
 }
 
-// GetProjectByID returns a single project by ID
+// GetProjectByID retrieves a single project by its ID.
+//
+// Path parameters:
+//   - id: MongoDB ObjectID of the project
+//
+// Response:
+//   - Success: { "project": <project object> }
+//   - Error: { "error": "<error message>" }
 func GetProjectByID(projectCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		projectID, err := primitive.ObjectIDFromHex(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-			return
-		}
+    return func(c *gin.Context) {
+        idStr := c.Param("id")
 
-		var project models.Project
-		err = projectCollection.FindOne(context.Background(), bson.M{"_id": projectID}).Decode(&project)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
-			return
-		}
+        // Parse the project ID
+        projectID, err := primitive.ObjectIDFromHex(idStr)
+        if err != nil {
+            log.Printf("GetProjectByID: Invalid project ID format - %s", idStr)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{"project": project})
-	}
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
+
+        // Query project by ID
+        var project models.Project
+        err = projectCollection.FindOne(ctx, bson.M{"_id": projectID}).Decode(&project)
+        if err != nil {
+            log.Printf("GetProjectByID: Project not found - %s", idStr)
+            c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+            return
+        }
+
+        log.Printf("GetProjectByID: Retrieved project %s", projectID.Hex())
+        c.JSON(http.StatusOK, gin.H{"project": project})
+    }
 }
 
-// UpdateProject updates project info
+// UpdateProject updates project information.
+//
+// Path parameters:
+//   - id: MongoDB ObjectID of the project
+//
+// Request body:
+//   - name (optional): New project name
+//   - description (optional): New description
+//   - status (optional): Project status (active/archived/deleted)
+//   - lang (optional): Language code
+//
+// Response:
+//   - Success: { "message": "Project updated successfully" }
+//   - Error: { "error": "<error message>" }
 func UpdateProject(projectCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		projectID, err := primitive.ObjectIDFromHex(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-			return
-		}
+    return func(c *gin.Context) {
+        idStr := c.Param("id")
 
-		var req struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			Status      string `json:"status"` // active/archived/deleted
-			Lang        string `json:"lang"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+        // Parse the project ID
+        projectID, err := primitive.ObjectIDFromHex(idStr)
+        if err != nil {
+            log.Printf("UpdateProject: Invalid project ID format - %s", idStr)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+            return
+        }
 
-		update := bson.M{
-			"$set": bson.M{
-				"name":        req.Name,
-				"description": req.Description,
-				"status":      req.Status,
-				"lang":        req.Lang,
-				"updated_at":  time.Now(),
-			},
-		}
+        var req struct {
+            Name        string `json:"name"`
+            Description string `json:"description"`
+            Status      string `json:"status"`
+            Lang        string `json:"lang"`
+        }
 
-		_, err = projectCollection.UpdateByID(context.Background(), projectID, update)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project"})
-			return
-		}
+        if err := c.ShouldBindJSON(&req); err != nil {
+            log.Printf("UpdateProject: Invalid request body - %v", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{"message": "Project updated successfully"})
-	}
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
+
+        // Build update document with only provided fields
+        update := bson.M{
+            "$set": bson.M{
+                "name":       req.Name,
+                "description": req.Description,
+                "status":     req.Status,
+                "lang":       req.Lang,
+                "updated_at": time.Now(),
+            },
+        }
+
+        // Update project
+        _, err = projectCollection.UpdateByID(ctx, projectID, update)
+        if err != nil {
+            log.Printf("UpdateProject: Failed to update project %s - %v", idStr, err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project"})
+            return
+        }
+
+        log.Printf("UpdateProject: Project %s updated successfully", projectID.Hex())
+        c.JSON(http.StatusOK, gin.H{"message": "Project updated successfully"})
+    }
 }
 
-// DeleteProject deletes a project
+// DeleteProject deletes a project from the database.
+//
+// Path parameters:
+//   - id: MongoDB ObjectID of the project
+//
+// Response:
+//   - Success: { "message": "Project deleted successfully" }
+//   - Error: { "error": "<error message>" }
 func DeleteProject(projectCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		projectID, err := primitive.ObjectIDFromHex(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-			return
-		}
+    return func(c *gin.Context) {
+        idStr := c.Param("id")
 
-		_, err = projectCollection.DeleteOne(context.Background(), bson.M{"_id": projectID})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete project"})
-			return
-		}
+        // Parse the project ID
+        projectID, err := primitive.ObjectIDFromHex(idStr)
+        if err != nil {
+            log.Printf("DeleteProject: Invalid project ID format - %s", idStr)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{"message": "Project deleted successfully"})
-	}
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
+
+        // Delete project
+        _, err = projectCollection.DeleteOne(ctx, bson.M{"_id": projectID})
+        if err != nil {
+            log.Printf("DeleteProject: Failed to delete project %s - %v", idStr, err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete project"})
+            return
+        }
+
+        log.Printf("DeleteProject: Project %s deleted successfully", projectID.Hex())
+        c.JSON(http.StatusOK, gin.H{"message": "Project deleted successfully"})
+    }
 }
 
-// added new get images by project
+// GetImagesByProject retrieves all images associated with a specific project
+// and updates the project's last accessed timestamp.
+//
+// Path parameters:
+//   - id: MongoDB ObjectID of the project
+//
+// Response:
+//   - Success: [<image objects>]
+//   - Error: { "error": "<error message>" }
 func GetImagesByProject(imageCollection *mongo.Collection, projectCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		projectID := c.Param("id")
+    return func(c *gin.Context) {
+        projectIDStr := c.Param("id")
 
-		objID, err := primitive.ObjectIDFromHex(projectID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-			return
-		}
+        // Parse the project ID
+        projectID, err := primitive.ObjectIDFromHex(projectIDStr)
+        if err != nil {
+            log.Printf("GetImagesByProject: Invalid project ID format - %s", projectIDStr)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+            return
+        }
 
-		// update the project's updated_at timestamp
-		_, err = projectCollection.UpdateByID(
-			context.Background(),
-			objID,
-			bson.M{"$set": bson.M{"updated_at": time.Now()}},
-		)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project timestamp"})
-			return
-		}
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
 
-		// fetch images linked to this project
-		filter := bson.M{"project_id": objID}
-		cursor, err := imageCollection.Find(context.Background(), filter)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch images"})
-			return
-		}
-		defer cursor.Close(context.Background())
+        // Update project's last accessed timestamp
+        _, err = projectCollection.UpdateByID(
+            ctx,
+            projectID,
+            bson.M{"$set": bson.M{"updated_at": time.Now()}},
+        )
+        if err != nil {
+            log.Printf("GetImagesByProject: Failed to update project timestamp - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project timestamp"})
+            return
+        }
 
-		var images []models.Image
-		if err := cursor.All(context.Background(), &images); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode images"})
-			return
-		}
+        // Fetch images linked to this project
+        filter := bson.M{"project_id": projectID}
+        cursor, err := imageCollection.Find(ctx, filter)
+        if err != nil {
+            log.Printf("GetImagesByProject: Failed to fetch images - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch images"})
+            return
+        }
+        defer cursor.Close(ctx)
 
-		c.JSON(http.StatusOK, images)
-	}
+        // Decode all images
+        var images []models.Image
+        if err := cursor.All(ctx, &images); err != nil {
+            log.Printf("GetImagesByProject: Failed to decode images - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode images"})
+            return
+        }
+
+        log.Printf("GetImagesByProject: Retrieved %d images for project %s", len(images), projectID.Hex())
+        c.JSON(http.StatusOK, images)
+    }
 }
 
-// GetProjectImageStats returns total images and annotated images count for a project
+// GetProjectImageStats returns image statistics for a specific project.
+// Statistics include total images and count of annotated images.
+//
+// Path parameters:
+//   - id: MongoDB ObjectID of the project
+//
+// Response:
+//   - Success: { "project_id": "<id>", "total_images": <count>, "annotated_images": <count> }
+//   - Error: { "error": "<error message>" }
 func GetProjectImageStats(imageCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		projectID := c.Param("id")
+    return func(c *gin.Context) {
+        projectIDStr := c.Param("id")
 
-		objID, err := primitive.ObjectIDFromHex(projectID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-			return
-		}
+        // Parse the project ID
+        projectID, err := primitive.ObjectIDFromHex(projectIDStr)
+        if err != nil {
+            log.Printf("GetProjectImageStats: Invalid project ID format - %s", projectIDStr)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+            return
+        }
 
-		// total images for the project
-		totalFilter := bson.M{"project_id": objID}
-		totalCount, err := imageCollection.CountDocuments(context.Background(), totalFilter)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total images"})
-			return
-		}
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
 
-		// annotated images: images with at least one annotation
-		annotatedFilter := bson.M{"project_id": objID, "annotations.0": bson.M{"$exists": true}}
-		annotatedCount, err := imageCollection.CountDocuments(context.Background(), annotatedFilter)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count annotated images"})
-			return
-		}
+        // Count total images for the project
+        totalFilter := bson.M{"project_id": projectID}
+        totalCount, err := imageCollection.CountDocuments(ctx, totalFilter)
+        if err != nil {
+            log.Printf("GetProjectImageStats: Failed to count total images - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total images"})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{
-			"project_id": projectID,
-			"total_images": totalCount,
-			"annotated_images": annotatedCount,
-		})
-	}
+        // Count annotated images (images with at least one annotation)
+        annotatedFilter := bson.M{"project_id": projectID, "annotations.0": bson.M{"$exists": true}}
+        annotatedCount, err := imageCollection.CountDocuments(ctx, annotatedFilter)
+        if err != nil {
+            log.Printf("GetProjectImageStats: Failed to count annotated images - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count annotated images"})
+            return
+        }
+
+        log.Printf("GetProjectImageStats: Project %s - Total: %d, Annotated: %d", projectID.Hex(), totalCount, annotatedCount)
+        c.JSON(http.StatusOK, gin.H{
+            "project_id":       projectIDStr,
+            "total_images":     totalCount,
+            "annotated_images": annotatedCount,
+        })
+    }
 }
 
-// GetTotalImagesAllProjects returns total images and annotated images across all projects
+// GetTotalImagesAllProjects returns image statistics across all projects.
+// Statistics include total images and count of annotated images.
+//
+// Response:
+//   - Success: { "total_images": <count>, "annotated_images": <count> }
+//   - Error: { "error": "<error message>" }
 func GetTotalImagesAllProjects(imageCollection *mongo.Collection) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// total images across all projects
-		totalCount, err := imageCollection.CountDocuments(context.Background(), bson.M{})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total images"})
-			return
-		}
+    return func(c *gin.Context) {
+        ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+        defer cancel()
 
-		// annotated images across all projects: images with at least one annotation
-		annotatedFilter := bson.M{"annotations.0": bson.M{"$exists": true}}
-		annotatedCount, err := imageCollection.CountDocuments(context.Background(), annotatedFilter)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count annotated images"})
-			return
-		}
+        // Count total images across all projects
+        totalCount, err := imageCollection.CountDocuments(ctx, bson.M{})
+        if err != nil {
+            log.Printf("GetTotalImagesAllProjects: Failed to count total images - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total images"})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{
-			"total_images": totalCount,
-			"annotated_images": annotatedCount,
-		})
-	}
+        // Count annotated images across all projects
+        annotatedFilter := bson.M{"annotations.0": bson.M{"$exists": true}}
+        annotatedCount, err := imageCollection.CountDocuments(ctx, annotatedFilter)
+        if err != nil {
+            log.Printf("GetTotalImagesAllProjects: Failed to count annotated images - %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count annotated images"})
+            return
+        }
+
+        log.Printf("GetTotalImagesAllProjects: Total: %d, Annotated: %d", totalCount, annotatedCount)
+        c.JSON(http.StatusOK, gin.H{
+            "total_images":     totalCount,
+            "annotated_images": annotatedCount,
+        })
+    }
 }

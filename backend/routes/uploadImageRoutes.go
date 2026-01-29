@@ -7,19 +7,24 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// ImageRoutes sets up all image upload routes (protected by authentication)
+// ImageRoutes sets up all image upload and annotation routes.
+// Routes:
+//   - POST /images/upload - Upload images to a project
+//   - POST /images/save-groundtruth - Save ground truth annotations for images
 func ImageRoutes(router gin.IRouter, imageCollection *mongo.Collection) {
-	imagesGroup := router.Group("/images")
-	{
-		// POST /images/upload - Upload images
-		imagesGroup.POST("/upload", controllers.UploadImages(imageCollection))
-		// POST /images/save-groundtruth - Save ground truth annotations
-		imagesGroup.POST("/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
-	}
+    imagesGroup := router.Group("/images")
+    {
+        // Upload images
+        imagesGroup.POST("/upload", controllers.UploadImages(imageCollection))
+
+        // Save ground truth annotations
+        imagesGroup.POST("/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
+    }
 }
 
-// SetupRoutes is deprecated - use ImageRoutes instead with proper authentication
+// DEPRECATED: SetupRoutes is maintained for backwards compatibility.
+// Use ImageRoutes instead with proper authentication middleware.
 func SetupRoutes(router *gin.Engine, imageCollection *mongo.Collection) {
-	router.POST("/upload", controllers.UploadImages(imageCollection))
-	router.POST("/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
+    router.POST("/upload", controllers.UploadImages(imageCollection))
+    router.POST("/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
 }

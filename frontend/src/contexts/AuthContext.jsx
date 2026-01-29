@@ -1,35 +1,53 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/auth";
+import {
+  getAuthToken,
+  setAuthTokenInStorage,
+  clearAuthTokenFromStorage,
+} from "@/lib/authUtils";
 
 const AuthContext = createContext();
 
+export { AuthContext };
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if token exists in localStorage on mount
+    const savedToken = getAuthToken();
+    if (savedToken) {
+      setToken(savedToken);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log(
         "Auth state changed:",
-        user ? "User logged in" : "User logged out"
+        user ? "User logged in" : "User logged out",
       );
 
       if (user) {
-        // Get Firebase token and set secure cookie
+        // Get Firebase token and save to localStorage
         try {
-          const token = await user.getIdToken();
-          await setAuthCookie(token);
+          const idToken = await user.getIdToken();
+
+          // Save token to localStorage for persistence across page reloads
+          setAuthTokenInStorage(idToken);
+          setToken(idToken);
           setUser(user);
+
           console.log("User authenticated successfully:", user.email);
         } catch (error) {
-          console.error("Failed to set auth cookie:", error);
-          // Sign out if cookie setting fails
+          console.error("Failed to get ID token:", error);
           await signOut(auth);
         }
       } else {
-        // Clear cookie on logout
-        await clearAuthCookie();
+        // Clear token on logout
+        clearAuthTokenFromStorage();
+        setToken(null);
         setUser(null);
         console.log("User signed out successfully");
       }
@@ -43,7 +61,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await signOut(auth);
-      // Cookie will be cleared by the auth state listener
+      // Token will be cleared by the auth state listener
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -51,6 +69,7 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
+    token,
     logout,
     loading,
     isAuthenticated: !!user,
@@ -58,42 +77,3 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-// Helper function to set secure cookie via backend
-async function setAuthCookie(token) {
-  const response = await fetch(
-    `${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/auth/set-cookie`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Important: include cookies
-      body: JSON.stringify({ token }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to set auth cookie");
-  }
-}
-
-// Helper function to clear cookie via backend
-async function clearAuthCookie() {
-  try {
-    await fetch(`${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-  } catch (error) {
-    console.error("Failed to clear auth cookie:", error);
-  }
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
