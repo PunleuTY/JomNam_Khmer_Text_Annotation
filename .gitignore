@@ -30,3 +30,4 @@ coverage/
 *.test-results
 
 **/jomnam-service-account.json
+backend\firebase\jomnam-service-account.json

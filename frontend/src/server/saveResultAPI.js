@@ -1,6 +1,8 @@
 import { loadProject } from "@/lib/storage";
 
-const BACKEND_PROJECT_URL = `${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/projects`;
+const BACKEND_PROJECT_URL = `${
+  import.meta.env.VITE_BACKEND_BASE_ENDPOINT
+}/projects`;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_ENDPOINT;
 
 // Load all projects
@@ -58,6 +60,47 @@ export const getImageByProjectAPI = async (id) => {
   }
 };
 
+// Get project stats (total images, annotated images)
+export const getProjectStatsAPI = async (id) => {
+  try {
+    const res = await fetch(`${BACKEND_PROJECT_URL}/${id}/stats`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! Status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    console.error("Failed to fetch project stats:", e.message);
+    return null;
+  }
+};
+
+// Get total images across all projects
+export const getTotalImagesAllProjectsAPI = async () => {
+  try {
+    const res = await fetch(`${BACKEND_PROJECT_URL}/stats/total`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! Status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log(data)
+    return data; // { total_images, annotated_images }
+  } catch (e) {
+    console.error("Failed to fetch total images stats:", e.message);
+    return null;
+  }
+};
+
 // Save result
 export const saveResultAPI = async (resultData) => {
   try {
@@ -86,3 +129,25 @@ export const saveResultAPI = async (resultData) => {
     };
   }
 };
+
+
+// Get project details by ID
+export const getProjectByIdAPI = async (id) => {
+  try {
+    const res = await fetch(`${BACKEND_PROJECT_URL}/${id}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! Status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data.project || data; // handle {project: {...}} or direct object
+  } catch (e) {
+    console.error("Failed to fetch project details:", e.message);
+    return null; // fallback
+  }
+};
+
