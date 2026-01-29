@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"backend/controllers"
 	"backend/middleware"
 	"backend/routes"
 
@@ -107,29 +106,25 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Initialize auth controller
-	authController := controllers.NewAuthController(firebaseAuth)
-
 	// ----- Setup Routes -----
-	// Public auth routes
-	router.POST("/auth/set-cookie", authController.SetAuthCookie)
-	router.POST("/auth/logout", authController.Logout)
+	// Public auth routes (no authentication required)
+	log.Println("📍 Setting up public routes...")
+	routes.AuthRoutes(router, firebaseAuth)
 
-	// Public routes (no auth required)
-	router.POST("/images/upload", controllers.UploadImages(imageCollection))
-	router.POST("/images/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
-
-	// Protected routes (require authentication)
-	protected := router.Group("/")
+	// Protected routes group (require Firebase authentication)
+	log.Println("📍 Setting up protected routes...")
+	protected := router.Group("/api")
 	protected.Use(middleware.FirebaseAuthMiddleware(firebaseAuth))
 	{
-		// Auth routes
-		protected.GET("/auth/me", authController.GetCurrentUser)
-
-		// Project routes
+		// Project routes - POST /api/projects, GET /api/projects, etc.
 		routes.ProjectRoutes(protected, projectCollection, imageCollection)
+		// Image upload routes - POST /api/images/upload, POST /api/images/save-groundtruth
+		routes.ImageRoutes(protected, imageCollection)
+		// Result/annotation routes - POST /api/results, GET /api/results
+		routes.ResultRoutes(protected, imageCollection)
 	}
 
 	// Start server
+	log.Printf("🚀 Server starting on %s", PORT)
 	router.Run(PORT)
 }
