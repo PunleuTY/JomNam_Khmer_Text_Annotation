@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"backend/cloudflare"
 	"backend/middleware"
 	"backend/routes"
 
@@ -36,6 +37,12 @@ func main() {
 	// Initialize Firebase authentication
 	firebaseAuth := initFirebase()
 
+	// Initialize Cloudflare R2 client
+	r2Client, err := cloudflare.NewR2Client()
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudflare R2 client: %v", err)
+	}
+
 	// Get database and collections
 	db := mongoClient.Database(config.MongoDBName)
 	imageCollection := db.Collection(config.ImageCollection)
@@ -54,7 +61,7 @@ func main() {
 	setupMiddleware(router, config)
 
 	// Setup all routes
-	setupRoutes(router, firebaseAuth, imageCollection, projectCollection, userCollection)
+	setupRoutes(router, firebaseAuth, imageCollection, projectCollection, userCollection, r2Client)
 
 	// Start server
 	log.Printf("Server starting on port %s", config.Port)
@@ -167,9 +174,6 @@ func initFirebase() *firebase.App {
 
 // setupMiddleware configures all middleware including CORS
 func setupMiddleware(router *gin.Engine, config Config) {
-	// Serve uploaded files statically
-	router.Static("/uploads", "./uploads")
-
 	// Configure CORS middleware
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{config.CORSOrigin},
@@ -181,7 +185,7 @@ func setupMiddleware(router *gin.Engine, config Config) {
 }
 
 // setupRoutes registers all application routes
-func setupRoutes(router *gin.Engine, firebaseApp *firebase.App, imageCollection, projectCollection, userCollection *mongo.Collection) {
+func setupRoutes(router *gin.Engine, firebaseApp *firebase.App, imageCollection, projectCollection, userCollection *mongo.Collection, r2Client *cloudflare.R2Client) {
 	// Get Firebase Auth client
 	firebaseAuth, err := firebaseApp.Auth(context.Background())
 	if err != nil {
@@ -207,8 +211,8 @@ func setupRoutes(router *gin.Engine, firebaseApp *firebase.App, imageCollection,
 			// Project management routes
 			routes.ProjectRoutes(protected, projectCollection, imageCollection)
 
-			// Image upload and annotation routes
-			routes.ImageRoutes(protected, imageCollection)
+			// Image upload and annotation routes (requires R2 client)
+			routes.ImageRoutes(protected, imageCollection, r2Client)
 
 			// Result/annotation retrieval routes
 			routes.ResultRoutes(protected, imageCollection)

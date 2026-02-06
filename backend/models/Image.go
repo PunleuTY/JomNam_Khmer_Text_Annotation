@@ -50,8 +50,7 @@ type Image struct {
     ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
     ProjectID   primitive.ObjectID `bson:"project_id" json:"project_id"`
     Name        string             `bson:"name" json:"name"`
-    Path        string             `bson:"path" json:"path"`
-    Base64      string             `bson:"base64" json:"base64"`
+    Path        string             `bson:"path" json:"path"` // R2 object key: datasets/email_projectid_filename.jpg
     Width       int                `bson:"width" json:"width"`
     Height      int                `bson:"height" json:"height"`
     Status      string             `bson:"status" json:"status"`
