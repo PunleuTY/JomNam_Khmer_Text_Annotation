@@ -1,21 +1,33 @@
-import { useState } from "react"
-import ProfileHeader from "../components/ui/Profile/ProfileHeader.jsx"
-import AccountInformation from "../components/ui/Profile/AccountInformation.jsx"
-import RecentAnnotations from "../components/ui/Profile/RecentAnnotation.jsx"
-import ProfileFooter from "../components/ui/Profile/ProfileFooter.jsx"
+import { useState } from "react";
+import ProfileHeader from "../components/ui/Profile/ProfileHeader.jsx";
+import AccountInformation from "../components/ui/Profile/AccountInformation.jsx";
+import RecentAnnotations from "../components/ui/Profile/RecentAnnotation.jsx";
+import ProfileFooter from "../components/ui/Profile/ProfileFooter.jsx";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Profile() {
-  const [isEditing, setIsEditing] = useState(false)
-  const [userData, setUserData] = useState({
-    name: "Sitharath Srey",
-    username: "sitharath",
-    bio: "Data annotation specialist with 3 years of experience in machine learning projects. Passionate about creating high-quality labeled datasets for AI applications.",
-    email: "sitharath.srey@example.com",
+  const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Use real user data from Firebase
+  const mockUserData = {
+    name: user?.displayName || "User",
+    username: user?.email?.split("@")[0] || "user",
+    bio: "Data annotation specialist passionate about creating high-quality labeled datasets for AI applications.",
+    email: user?.email || "user@example.com",
     phone: "+ 855 123 456 789",
-    joinedDate: "January 1, 2025",
+    joinedDate: user?.metadata?.creationTime
+      ? new Date(user.metadata.creationTime).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "January 1, 2025",
     role: "Researcher",
-    organization: "CADT"
-  })
+    organization: "CADT",
+    photoURL: user?.photoURL,
+  };
+  const [userData, setUserData] = useState(mockUserData);
 
   const recentAnnotations = [
     {
@@ -53,17 +65,21 @@ export default function Profile() {
       timestamp: "2 days ago",
       status: "completed",
     },
-  ]
+  ];
 
   const handleUpdateProfile = (updatedData) => {
-    setUserData({ ...userData, ...updatedData })
-    setIsEditing(false)
-  }
+    setUserData({ ...userData, ...updatedData });
+    setIsEditing(false);
+  };
 
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <ProfileHeader userData={userData} isEditing={isEditing} onUpdate={handleUpdateProfile} />
+        <ProfileHeader
+          userData={userData}
+          isEditing={isEditing}
+          onUpdate={handleUpdateProfile}
+        />
 
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <AccountInformation
@@ -75,8 +91,8 @@ export default function Profile() {
           <RecentAnnotations annotations={recentAnnotations} />
         </div>
 
-        <ProfileFooter email="Bot.bot@gmail.com" />
+        <ProfileFooter email={userData.email} />
       </div>
     </div>
-  )
+  );
 }

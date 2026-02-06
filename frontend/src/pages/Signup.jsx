@@ -1,14 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import { signup, loginWithGoogle } from "@/lib/auth/index";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useAuth } from "@/hooks/useAuth";
 
 const Signup = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      navigate("/");
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -19,14 +33,49 @@ const Signup = () => {
   };
 
   // Handle default signup
-  const handleSubmit = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
+    setIsSigningUp(true);
     console.log("Signup form submitted:", formData);
+
+    try {
+      const response = await signup(formData.email, formData.password);
+      if (response.success) {
+        console.log("Signup successful:", response.user);
+        toast.success("Account created successfully!");
+        // Navigation will be handled by useEffect when auth state updates
+      } else {
+        console.error("Error signup: ", response.error);
+        toast.error("Failed to create account: " + response.error);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("An error occurred during signup");
+    } finally {
+      setIsSigningUp(false);
+    }
   };
 
   // Handle google signup
-  const handleGoogleSignup = () => {
-    console.log("Google signup clicked");
+  const handleGoogleSignup = async () => {
+    setIsSigningUp(true);
+
+    try {
+      const response = await loginWithGoogle();
+      if (response.success) {
+        console.log("Google signup successful:", response.user);
+        toast.success("Account created successfully!");
+        // Navigation will be handled by useEffect when auth state updates
+      } else {
+        console.error("Error google signup: ", response.error);
+        toast.error("Failed to create account with Google: " + response.error);
+      }
+    } catch (error) {
+      console.error("Google signup error:", error);
+      toast.error("An error occurred during Google signup");
+    } finally {
+      setIsSigningUp(false);
+    }
   };
 
   return (
@@ -38,7 +87,7 @@ const Signup = () => {
         </h1>
 
         {/* Signup Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSignup} className="space-y-6">
           {/* Full Name Field */}
           <div>
             <label className="block text-gray-300 text-sm font-medium mb-2">
@@ -103,9 +152,10 @@ const Signup = () => {
           {/* Create Account Button */}
           <button
             type="submit"
-            className="w-full bg-[#F88F2D] text-[#12284C] font-bold py-3 px-4 rounded-md hover:bg-[#e67e26] transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#F88F2D] focus:ring-opacity-50"
+            disabled={isSigningUp || loading}
+            className="w-full bg-[#F88F2D] text-[#12284C] font-bold py-3 px-4 rounded-md hover:bg-[#e67e26] transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#F88F2D] focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            CREATE ACCOUNT
+            {isSigningUp ? "CREATING ACCOUNT..." : "CREATE ACCOUNT"}
           </button>
         </form>
 
@@ -119,10 +169,11 @@ const Signup = () => {
         {/* Google Signup Button */}
         <button
           onClick={handleGoogleSignup}
-          className="w-full bg-white text-gray-700 font-medium py-3 px-4 rounded-md hover:bg-gray-50 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 flex items-center justify-center gap-3"
+          disabled={isSigningUp || loading}
+          className="w-full bg-white text-gray-700 font-medium py-3 px-4 rounded-md hover:bg-gray-50 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FcGoogle size={20} />
-          Sign Up with Google
+          {isSigningUp ? "Creating account..." : "Sign Up with Google"}
         </button>
 
         {/* Sign In Link */}

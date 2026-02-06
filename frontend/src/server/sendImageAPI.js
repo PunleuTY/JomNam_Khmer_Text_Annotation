@@ -1,5 +1,6 @@
 import { file } from "jszip";
 import { toast } from "react-toastify";
+import { apiRequest } from "@/lib/api";
 
 const BACKEND_UPLOAD_URL = `${import.meta.env.VITE_ML_BASE_ENDPOINT}/images/`;
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_ENDPOINT;
@@ -33,7 +34,7 @@ export const saveGroundTruth = async (
   filename,
   projectId,
   imageId,
-  annotations
+  annotations,
 ) => {
   if (!annotations) return null;
 
@@ -52,14 +53,12 @@ export const saveGroundTruth = async (
   console.log("save ground truth payload", payload);
 
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/images/save-groundtruth`, {
+    const res = await apiRequest(`/images/save-groundtruth`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
-    return data;
+    return await res.json();
   } catch (err) {
     console.error("Error saving ground truth:", err);
     toast.error("Error saving ground truth");

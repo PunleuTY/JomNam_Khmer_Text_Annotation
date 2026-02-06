@@ -1,14 +1,9 @@
-import { loadProject } from "@/lib/storage";
-
-const BACKEND_PROJECT_URL = `${
-  import.meta.env.VITE_BACKEND_BASE_ENDPOINT
-}/projects`;
-const API_BASE_URL = import.meta.env.VITE_API_BASE_ENDPOINT;
+import { apiRequest } from "@/lib/api";
 
 // Load all projects
 export const loadProjectAPI = async () => {
   try {
-    const res = await fetch(BACKEND_PROJECT_URL);
+    const res = await apiRequest("/projects");
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
@@ -23,9 +18,8 @@ export const loadProjectAPI = async () => {
 // Create new project
 export const createProjectAPI = async (name, description) => {
   try {
-    const res = await fetch(BACKEND_PROJECT_URL, {
+    const res = await apiRequest("/projects", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, description }),
     });
 
@@ -43,9 +37,8 @@ export const createProjectAPI = async (name, description) => {
 // Get all images for a project
 export const getImageByProjectAPI = async (id) => {
   try {
-    const res = await fetch(`${BACKEND_PROJECT_URL}/${id}/images`, {
+    const res = await apiRequest(`/projects/${id}/images`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
     });
 
     if (!res.ok) {
@@ -63,9 +56,8 @@ export const getImageByProjectAPI = async (id) => {
 // Get project stats (total images, annotated images)
 export const getProjectStatsAPI = async (id) => {
   try {
-    const res = await fetch(`${BACKEND_PROJECT_URL}/${id}/stats`, {
+    const res = await apiRequest(`/projects/${id}/stats`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
     });
 
     if (!res.ok) {
@@ -83,9 +75,8 @@ export const getProjectStatsAPI = async (id) => {
 // Get total images across all projects
 export const getTotalImagesAllProjectsAPI = async () => {
   try {
-    const res = await fetch(`${BACKEND_PROJECT_URL}/stats/total`, {
+    const res = await apiRequest("/projects/stats/total", {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
     });
 
     if (!res.ok) {
@@ -93,7 +84,7 @@ export const getTotalImagesAllProjectsAPI = async () => {
     }
 
     const data = await res.json();
-    console.log(data)
+    console.log(data);
     return data; // { total_images, annotated_images }
   } catch (e) {
     console.error("Failed to fetch total images stats:", e.message);
@@ -104,11 +95,8 @@ export const getTotalImagesAllProjectsAPI = async () => {
 // Save result
 export const saveResultAPI = async (resultData) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/results`, {
+    const response = await apiRequest("/results", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(resultData),
     });
 
@@ -130,13 +118,11 @@ export const saveResultAPI = async (resultData) => {
   }
 };
 
-
 // Get project details by ID
 export const getProjectByIdAPI = async (id) => {
   try {
-    const res = await fetch(`${BACKEND_PROJECT_URL}/${id}`, {
+    const res = await apiRequest(`/projects/${id}`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
     });
 
     if (!res.ok) {
@@ -150,4 +136,3 @@ export const getProjectByIdAPI = async (id) => {
     return null; // fallback
   }
 };
-

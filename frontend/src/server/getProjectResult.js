@@ -1,15 +1,12 @@
-const BACKEND_PROJECT_URL = `${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/projects`;
+import { apiRequest } from "@/lib/api";
 
 export const editProjectAPI = async (projectId, updatedData) => {
   try {
     console.log("editProjectAPI called with:", { projectId, updatedData });
-    console.log("Sending request to:", `${BACKEND_PROJECT_URL}/${projectId}`);
+    console.log("Sending request to:", `/projects/${projectId}`);
 
-    const response = await fetch(`${BACKEND_PROJECT_URL}/${projectId}`, {
+    const response = await apiRequest(`/projects/${projectId}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(updatedData),
     });
 

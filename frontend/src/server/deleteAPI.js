@@ -1,11 +1,9 @@
-// Use environment variable from Vite
-const BACKEND_PROJECT_ENDPOINT = `${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/projects`;
+import { apiRequest } from "@/lib/api";
 
 export const deleteProjectAPI = async (projectId) => {
   try {
-    const res = await fetch(`${BACKEND_PROJECT_ENDPOINT}/${projectId}`, {
+    const res = await apiRequest(`/projects/${projectId}`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
     });
 
     // Some APIs return 204 No Content for successful deletes

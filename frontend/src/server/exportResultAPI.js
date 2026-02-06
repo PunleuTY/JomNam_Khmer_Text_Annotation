@@ -1,20 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_ENDPOINT;
+import { apiRequest } from "@/lib/api";
 
 export const getResultById = async (id) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/results/${id}`, {
+    const response = await apiRequest(`/results/${id}`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error("Error fetching result by ID:", error);
     throw error;
