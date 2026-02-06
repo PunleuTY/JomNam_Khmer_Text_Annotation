@@ -1,33 +1,65 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ProfileHeader from "../components/ui/Profile/ProfileHeader.jsx";
 import AccountInformation from "../components/ui/Profile/AccountInformation.jsx";
 import RecentAnnotations from "../components/ui/Profile/RecentAnnotation.jsx";
 import ProfileFooter from "../components/ui/Profile/ProfileFooter.jsx";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/api";
+import { toast } from "react-toastify";
 
 export default function Profile() {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Use real user data from Firebase
-  const mockUserData = {
-    name: user?.displayName || "User",
-    username: user?.email?.split("@")[0] || "user",
-    bio: "Data annotation specialist passionate about creating high-quality labeled datasets for AI applications.",
-    email: user?.email || "user@example.com",
-    phone: "+ 855 123 456 789",
-    joinedDate: user?.metadata?.creationTime
-      ? new Date(user.metadata.creationTime).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
-      : "January 1, 2025",
-    role: "Researcher",
-    organization: "CADT",
-    photoURL: user?.photoURL,
-  };
-  const [userData, setUserData] = useState(mockUserData);
+  // Fetch user profile from MongoDB
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await apiRequest("/users/profile");
+        if (response.ok) {
+          const data = await response.json();
+          const dbUser = data.user;
+
+          // Format user data for display
+          const formattedUser = {
+            id: dbUser.id,
+            name: dbUser.name || "User",
+            username: dbUser.email?.split("@")[0] || "user",
+            bio: dbUser.bio || "",
+            email: dbUser.email,
+            phone: dbUser.phoneNumber || "",
+            joinedDate: new Date(dbUser.created_at).toLocaleDateString(
+              "en-US",
+              {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              },
+            ),
+            role: dbUser.role || "",
+            organization: dbUser.organization || "",
+            profileImage: dbUser.profilePhoto || user?.photoURL,
+            coverImage: dbUser.coverPhoto || "",
+          };
+
+          setUserData(formattedUser);
+        } else {
+          toast.error("Failed to load profile");
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        toast.error("Error loading profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user]);
 
   const recentAnnotations = [
     {
@@ -67,10 +99,87 @@ export default function Profile() {
     },
   ];
 
-  const handleUpdateProfile = (updatedData) => {
-    setUserData({ ...userData, ...updatedData });
-    setIsEditing(false);
+  const handleUpdateProfile = async (updatedData) => {
+    try {
+      // Prepare data for API (convert to database field names)
+      const updatePayload = {
+        name: updatedData.name,
+        bio: updatedData.bio,
+        phoneNumber: updatedData.phone,
+        role: updatedData.role,
+        organization: updatedData.organization,
+      };
+
+      // Add profile and cover images if they were updated
+      if (
+        updatedData.profileImage &&
+        updatedData.profileImage !== userData.profileImage
+      ) {
+        updatePayload.profilePhoto = updatedData.profileImage;
+      }
+      if (
+        updatedData.coverImage &&
+        updatedData.coverImage !== userData.coverImage
+      ) {
+        updatePayload.coverPhoto = updatedData.coverImage;
+      }
+
+      const response = await apiRequest("/users/profile", {
+        method: "PUT",
+        body: JSON.stringify(updatePayload),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const dbUser = data.user;
+
+        // Update local state with response from server
+        const formattedUser = {
+          id: dbUser.id,
+          name: dbUser.name || "User",
+          username: dbUser.email?.split("@")[0] || "user",
+          bio: dbUser.bio || "",
+          email: dbUser.email,
+          phone: dbUser.phoneNumber || "",
+          joinedDate: new Date(dbUser.created_at).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+          role: dbUser.role || "",
+          organization: dbUser.organization || "",
+          profileImage: dbUser.profilePhoto || user?.photoURL,
+          coverImage: dbUser.coverPhoto || "",
+        };
+
+        setUserData(formattedUser);
+        setIsEditing(false);
+        toast.success("Profile updated successfully!");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to update profile");
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Error updating profile");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-gray-600">Loading profile...</div>
+      </div>
+    );
+  }
+
+  if (!userData) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-gray-600">Failed to load profile</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">

@@ -5,19 +5,24 @@ import { FaUserGraduate } from "react-icons/fa6";
 import { RiOrganizationChart } from "react-icons/ri";
 import { LuUserRound } from "react-icons/lu";
 import { FaRegEdit } from "react-icons/fa";
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 
-export default function AccountInformation({ userData, onEditClick, isEditing, onUpdate }) {
-  const [editedData, setEditedData] = useState(userData)
+export default function AccountInformation({
+  userData,
+  onEditClick,
+  isEditing,
+  onUpdate,
+}) {
+  const [editedData, setEditedData] = useState(userData);
 
   // Sync editedData with userData when userData changes
   useEffect(() => {
-    setEditedData(userData)
-  }, [userData])
+    setEditedData(userData);
+  }, [userData]);
 
   const handleSave = () => {
-    onUpdate(editedData)
-  }
+    onUpdate(editedData);
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -27,22 +32,12 @@ export default function AccountInformation({ userData, onEditClick, isEditing, o
       </div>
 
       <div className="space-y-5">
-        
         {/* Email */}
         <div className="flex items-start gap-3">
           <IoMailOpenOutline className="w-5 h-5 text-gray-500 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm text-gray-500 mb-1">Email</p>
-            {isEditing ? (
-              <input
-                type="email"
-                value={editedData.email}
-                onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
-                className="w-full text-sm text-gray-900 border-b border-gray-300 focus:outline-none focus:border-orange-500"
-              />
-            ) : (
-              <p className="text-sm text-gray-900">{userData.email}</p>
-            )}
+            <p className="text-sm text-gray-900">{userData.email}</p>
           </div>
         </div>
 
@@ -55,7 +50,9 @@ export default function AccountInformation({ userData, onEditClick, isEditing, o
               <input
                 type="tel"
                 value={editedData.phone}
-                onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
+                onChange={(e) =>
+                  setEditedData({ ...editedData, phone: e.target.value })
+                }
                 className="w-full text-sm text-gray-900 border-b border-gray-300 focus:outline-none focus:border-orange-500"
               />
             ) : (
@@ -82,7 +79,9 @@ export default function AccountInformation({ userData, onEditClick, isEditing, o
               <input
                 type="text"
                 value={editedData.role}
-                onChange={(e) => setEditedData({ ...editedData, role: e.target.value })}
+                onChange={(e) =>
+                  setEditedData({ ...editedData, role: e.target.value })
+                }
                 className="w-full text-sm text-gray-900 border-b border-gray-300 focus:outline-none focus:border-orange-500"
               />
             ) : (
@@ -100,7 +99,9 @@ export default function AccountInformation({ userData, onEditClick, isEditing, o
               <input
                 type="text"
                 value={editedData.organization}
-                onChange={(e) => setEditedData({ ...editedData, organization: e.target.value })}
+                onChange={(e) =>
+                  setEditedData({ ...editedData, organization: e.target.value })
+                }
                 className="w-full text-sm text-gray-900 border-b border-gray-300 focus:outline-none focus:border-orange-500"
               />
             ) : (
@@ -115,9 +116,9 @@ export default function AccountInformation({ userData, onEditClick, isEditing, o
         onClick={isEditing ? handleSave : onEditClick}
         className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
       >
-        <FaRegEdit className="w-6 h-6"/>
+        <FaRegEdit className="w-6 h-6" />
         {isEditing ? "Save Information" : "Edit Information"}
       </button>
     </div>
-  )
+  );
 }
