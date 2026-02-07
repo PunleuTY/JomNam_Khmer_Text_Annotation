@@ -6,6 +6,7 @@ import {
   setAuthTokenInStorage,
   clearAuthTokenFromStorage,
 } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/api";
 
 const AuthContext = createContext();
 
@@ -39,7 +40,24 @@ export function AuthProvider({ children }) {
           setToken(idToken);
           setUser(user);
 
-          console.log("User authenticated successfully:", user.email);
+          // Call backend to set auth cookie and create/update MongoDB user record
+          try {
+            const response = await apiRequest("/auth/set-cookie", {
+              method: "POST",
+              body: JSON.stringify({ token: idToken }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              console.log("User authenticated successfully:", user.email);
+              console.log("MongoDB user record:", data.user);
+            } else {
+              const error = await response.json();
+              console.error("Failed to set auth cookie:", error);
+            }
+          } catch (error) {
+            console.error("Error calling set-cookie endpoint:", error);
+          }
         } catch (error) {
           console.error("Failed to get ID token:", error);
           await signOut(auth);
@@ -60,6 +78,15 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
+      // Call backend to clear auth cookie
+      try {
+        await apiRequest("/api/auth/logout", {
+          method: "POST",
+        });
+      } catch (error) {
+        console.error("Error calling logout endpoint:", error);
+      }
+
       await signOut(auth);
       // Token will be cleared by the auth state listener
     } catch (error) {

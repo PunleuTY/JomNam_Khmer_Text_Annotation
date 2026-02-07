@@ -6,6 +6,7 @@ import (
 
 	"firebase.google.com/go/auth"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // AuthRoutes sets up all authentication-related routes.
@@ -13,8 +14,8 @@ import (
 //   - POST /auth/set-cookie (public) - Set authentication cookie
 //   - POST /auth/logout (public) - Logout and clear authentication
 //   - GET /auth/me (protected) - Get current authenticated user information
-func AuthRoutes(router gin.IRouter, firebaseAuth *auth.Client) {
-    authController := controllers.NewAuthController(firebaseAuth)
+func AuthRoutes(router gin.IRouter, firebaseAuth *auth.Client, userCollection *mongo.Collection) {
+    authController := controllers.NewAuthController(firebaseAuth, userCollection)
 
     authGroup := router.Group("/auth")
     {

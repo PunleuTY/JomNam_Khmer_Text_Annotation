@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { CiEdit } from "react-icons/ci";
 import { IoClose } from "react-icons/io5";
+import { FiCheck } from "react-icons/fi";
 
 export default function ProfileHeader({ userData, isEditing, onUpdate }) {
   const [editedData, setEditedData] = useState(userData);
   const profileImageInputRef = useRef(null);
   const coverImageInputRef = useRef(null);
   const [viewImage, setViewImage] = useState(null); // null, 'profile', or 'cover'
+  const [isEditingBio, setIsEditingBio] = useState(false);
 
   // Sync editedData with userData when userData changes
   useEffect(() => {
@@ -15,6 +17,11 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
 
   const handleSave = () => {
     onUpdate(editedData);
+  };
+
+  const handleBioSave = () => {
+    onUpdate({ bio: editedData.bio });
+    setIsEditingBio(false);
   };
 
   const handleProfileImageClick = () => {
@@ -173,36 +180,46 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
                 </h1>
               )}
 
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editedData.username}
-                  onChange={(e) =>
-                    setEditedData({ ...editedData, username: e.target.value })
-                  }
-                  className="text-gray-500 mt-1 text-center border-b border-gray-300 focus:outline-none"
-                />
-              ) : (
-                <p className="text-gray-500 mt-1">@{userData.username}</p>
-              )}
+              <p className="text-gray-500 mt-1">@{userData.username}</p>
             </div>
 
             {/* Bio */}
             <div className="mt-4 w-2xl">
-              {isEditing ? (
-                <textarea
-                  value={editedData.bio}
-                  onChange={(e) =>
-                    setEditedData({ ...editedData, bio: e.target.value })
-                  }
-                  className="w-full text-sm text-gray-600 text-center leading-relaxed border border-gray-300 rounded-lg p-2 focus:outline-none focus:border-orange-500"
-                  rows="3"
-                />
-              ) : (
-                <p className="text-sm text-gray-600 text-center leading-relaxed">
-                  {userData.bio}
-                </p>
-              )}
+              <div className="flex items-start justify-center gap-2">
+                {isEditingBio ? (
+                  <div className="flex-1 flex flex-col items-center gap-2">
+                    <textarea
+                      value={editedData.bio}
+                      onChange={(e) =>
+                        setEditedData({ ...editedData, bio: e.target.value })
+                      }
+                      className="w-full text-sm text-gray-600 text-center leading-relaxed border border-gray-300 rounded-lg p-2 focus:outline-none focus:border-orange-500"
+                      rows="3"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleBioSave}
+                      className="flex items-center gap-1 px-3 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded transition-colors"
+                    >
+                      <FiCheck className="w-3 h-3" />
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 text-center leading-relaxed flex-1">
+                      {userData.bio || "No bio yet"}
+                    </p>
+                    <button
+                      onClick={() => setIsEditingBio(true)}
+                      className="text-gray-400 hover:text-orange-500 transition-colors"
+                      title="Edit bio"
+                    >
+                      <CiEdit className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Save Button - Only show when editing */}
