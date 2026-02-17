@@ -6,7 +6,6 @@ export const deleteProjectAPI = async (projectId) => {
       method: "DELETE",
     });
 
-    // Some APIs return 204 No Content for successful deletes
     if (res.status === 204) {
       return { success: true, message: "Project deleted successfully" };
     }
@@ -15,9 +14,9 @@ export const deleteProjectAPI = async (projectId) => {
     if (!res.ok) {
       throw new Error(data.message || `HTTP ${res.status}: ${res.statusText}`);
     }
-    return data; // Return response data (e.g., success message)
+    return data;
   } catch (e) {
     console.error("deleteProjectAPI error:", e);
-    throw e; // Re-throw so the calling component can handle the error
+    throw e;
   }
 };

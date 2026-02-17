@@ -8,7 +8,7 @@ export const loadProjectAPI = async () => {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     const data = await res.json();
-    return data.projects || data; // handle {projects: [...]} or direct array
+    return data.projects || data;
   } catch (e) {
     console.error("Failed to load projects:", e.message);
     throw e;
@@ -45,8 +45,7 @@ export const getImageByProjectAPI = async (id) => {
       throw new Error(`HTTP error! Status: ${res.status}`);
     }
 
-    const data = await res.json();
-    return data;
+    return await res.json();
   } catch (e) {
     console.error("Failed to fetch project images:", e.message);
     return null; // fallback
@@ -64,8 +63,7 @@ export const getProjectStatsAPI = async (id) => {
       throw new Error(`HTTP error! Status: ${res.status}`);
     }
 
-    const data = await res.json();
-    return data;
+    return await res.json();
   } catch (e) {
     console.error("Failed to fetch project stats:", e.message);
     return null;
@@ -83,9 +81,7 @@ export const getTotalImagesAllProjectsAPI = async () => {
       throw new Error(`HTTP error! Status: ${res.status}`);
     }
 
-    const data = await res.json();
-    console.log(data);
-    return data; // { total_images, annotated_images }
+    return await res.json();
   } catch (e) {
     console.error("Failed to fetch total images stats:", e.message);
     return null;
@@ -130,9 +126,9 @@ export const getProjectByIdAPI = async (id) => {
     }
 
     const data = await res.json();
-    return data.project || data; // handle {project: {...}} or direct object
+    return data.project || data;
   } catch (e) {
     console.error("Failed to fetch project details:", e.message);
-    return null; // fallback
+    return null;
   }
 };

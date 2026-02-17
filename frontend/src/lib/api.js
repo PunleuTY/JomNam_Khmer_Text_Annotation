@@ -9,10 +9,9 @@ export async function apiRequest(endpoint, options = {}) {
       "Content-Type": "application/json",
       ...options.headers,
     },
-    credentials: "include", // Include cookies with requests
+    credentials: "include",
   };
 
-  // Add Authorization header if token exists
   if (token) {
     defaultOptions.headers["Authorization"] = `Bearer ${token}`;
   }
@@ -22,7 +21,3 @@ export async function apiRequest(endpoint, options = {}) {
     ...options,
   });
 }
-
-// Example usage:
-// const response = await apiRequest('/api/projects');
-// const data = await response.json();
