@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"image"
+	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -28,6 +30,7 @@ type uploadResult struct {
     Annotations json.RawMessage
     ObjectKey   string // R2 object key
     PublicURL   string // Public URL for the image
+    ProcessingResult json.RawMessage
 }
 
 // UploadImages handles multiple image uploads for a project.
@@ -93,14 +96,14 @@ func UploadImages(imageCollection *mongo.Collection, r2Client *cloudflare.R2Clie
             return
         }
 
-        // Parse annotations if provided
+        // Parse annotations if provided. Accept flexible formats: try models.Annotation, otherwise ignore for upload.
         annotationsStr := c.PostForm("annotations")
         var annotations []models.Annotation
         if annotationsStr != "" {
             if err := json.Unmarshal([]byte(annotationsStr), &annotations); err != nil {
-                log.Printf("UploadImages: Invalid annotations JSON - %v", err)
-                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid annotations JSON"})
-                return
+                // Not a models.Annotation array (could be array of boxes). Log and continue without failing upload.
+                log.Printf("UploadImages: Annotations not in models.Annotation format, skipping DB save: %v", err)
+                annotations = nil
             }
         }
 
@@ -122,11 +125,19 @@ func UploadImages(imageCollection *mongo.Collection, r2Client *cloudflare.R2Clie
         annotationsMap := make(map[string]json.RawMessage)
 
         for _, r := range results {
-            imagesList = append(imagesList, map[string]interface{}{
+            imgMap := map[string]interface{}{
                 "file_name":  r.FileName,
                 "object_key": r.ObjectKey,
                 "url":        r.PublicURL,
-            })
+            }
+            // Attach OCR result if present per-image
+            if len(r.ProcessingResult) > 0 {
+                var pr interface{}
+                if err := json.Unmarshal(r.ProcessingResult, &pr); err == nil {
+                    imgMap["processing_result"] = pr
+                }
+            }
+            imagesList = append(imagesList, imgMap)
             annotationsMap[r.FileName] = r.Annotations
         }
 
@@ -225,6 +236,8 @@ func processImageUpload(
         log.Printf("processImageUpload: Failed to save image %s to database - %v", file.Filename, err)
     }
 
+    // No automatic OCR during upload. OCR is triggered via separate endpoint.
+
     log.Printf("processImageUpload: Successfully processed %s - URL: %s", file.Filename, publicURL)
     resultChan <- uploadResult{
         FileName:    file.Filename,
@@ -318,5 +331,105 @@ func SaveGroundTruth(imageCollection *mongo.Collection) gin.HandlerFunc {
             "filename": req.Filename,
             "url":      publicURL,
         })
+    }
+}
+
+// TriggerOCR pulls an existing image from Cloudflare R2, sends it to the ML server
+// with provided annotation boxes, and returns the ML processing_result.
+// Request: POST /images/:id/ocr
+// Body: { "annotations": [ [x1,y1,x2,y2], ... ] }
+func TriggerOCR(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        imageIDStr := c.Param("id")
+        if imageIDStr == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Missing image id"})
+            return
+        }
+
+        imageID, err := primitive.ObjectIDFromHex(imageIDStr)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid image id"})
+            return
+        }
+
+        // Find image doc
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+
+        var img models.Image
+        if err := imageCollection.FindOne(ctx, bson.M{"_id": imageID}).Decode(&img); err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+            return
+        }
+
+        // Read annotations from request body (allow generic JSON)
+        var body struct {
+            Annotations interface{} `json:"annotations"`
+        }
+        if err := c.BindJSON(&body); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+            return
+        }
+
+        // Get public URL of the image
+        publicURL := cloudflare.GetPublicURL(img.Path)
+        if publicURL == "" {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Cloudflare public endpoint not configured"})
+            return
+        }
+
+        // Fetch image bytes from public URL
+        resp, err := http.Get(publicURL)
+        if err != nil || resp.StatusCode != 200 {
+            c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch image from Cloudflare"})
+            return
+        }
+        defer resp.Body.Close()
+        imgBytes, err := io.ReadAll(resp.Body)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image bytes"})
+            return
+        }
+
+        // Call ML server
+        mlURL := "http://127.0.0.1:8000/images/"
+        bodyBuf := &bytes.Buffer{}
+        writer := multipart.NewWriter(bodyBuf)
+        part, err := writer.CreateFormFile("image", img.Name)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare ML request"})
+            return
+        }
+        if _, err := part.Write(imgBytes); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write image to ML request"})
+            return
+        }
+        // annotations JSON
+        annsJson, _ := json.Marshal(body.Annotations)
+        _ = writer.WriteField("annotations", string(annsJson))
+        _ = writer.WriteField("project_id", img.ProjectID.Hex())
+        writer.Close()
+
+        req, err := http.NewRequest("POST", mlURL, bodyBuf)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create ML request"})
+            return
+        }
+        req.Header.Set("Content-Type", writer.FormDataContentType())
+        client := &http.Client{Timeout: 60 * time.Second}
+        resp2, err := client.Do(req)
+        if err != nil {
+            c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to call ML server", "details": err.Error()})
+            return
+        }
+        defer resp2.Body.Close()
+        var mlResp map[string]interface{}
+        if err := json.NewDecoder(resp2.Body).Decode(&mlResp); err != nil {
+            c.JSON(http.StatusBadGateway, gin.H{"error": "Invalid ML response"})
+            return
+        }
+
+        // Return ML processing result to caller. Caller can then persist annotations via /images/save-groundtruth
+        c.JSON(http.StatusOK, mlResp)
     }
 }

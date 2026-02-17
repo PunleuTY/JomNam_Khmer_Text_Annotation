@@ -1,6 +1,6 @@
 "use client";
 // This file is part of the Open-Source project:
-import axios from "axios";
+// axios removed (unused)
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
@@ -24,14 +24,14 @@ import {
   GalleryVerticalEnd,
   Redo,
   FolderOpen,
-  Edit3
+  Edit3,
 } from "lucide-react";
 
 import { JsonEditor } from "@/components/json-editor";
 import { AnnotationList } from "@/components/annotation-list";
 import { AnnotationCanvas } from "@/components/annotation-canvas";
 import { levenshteinSimilarity } from "@/lib/levenshtein";
-import { saveProject, clearProject } from "@/lib/storage";
+import { saveProject } from "@/lib/storage";
 import { ExportDialog } from "@/components/export-dialog";
 // import { CurrentProjectContext, ProjectContext } from "./Myproject";
 import { uploadImages, saveGroundTruth } from "@/server/sendImageAPI";
@@ -66,7 +66,7 @@ const Annotate = () => {
   const [images, setImages] = useState([]);
   const [annotations, setAnnotations] = useState({});
   const [activeTab, setActiveTab] = useState("annotation");
-  const [lang, setLang] = useState("khm");
+  const [lang] = useState("khm");
   const [exportOpen, setExportOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -78,7 +78,7 @@ const Annotate = () => {
   const [successMsg, setSuccessMsg] = useState("");
   const [project, setProject] = useState(null);
   const [projectLoading, setProjectLoading] = useState(false);
-  const [batchInfo, setBatchInfo] = useState({
+  const [_batchInfo, setBatchInfo] = useState({
     running: false,
     current: 0,
     total: 0,
@@ -117,7 +117,7 @@ const Annotate = () => {
         if (data) {
           const processedImages = data.map((img) => ({
             ...img,
-            url: img.base64, // add url attribute with base64 value
+            url: img.url || img.base64, // Prefer public URL, fallback to base64 if present
           }));
 
           console.log("Fetched images:", processedImages);
@@ -140,37 +140,34 @@ const Annotate = () => {
     };
 
     fetchProjectData();
-  }, [id]);
+  }, [id, CurrentProjectContext]);
 
   const fetchSaveGroundTruth = async () => {
-    const ann = annotations[currentId] || [];
-    const file_name = currentImage ? currentImage.name : "unknown.png";
     setSaveLoading(true);
     try {
       // If we have a current image, save its annotations
       if (currentId && annotations[currentId]) {
         const ann = annotations[currentId] || [];
         const file_name = currentImage ? currentImage.name : "unknown.png";
-        const data = await saveGroundTruth(file_name, id, currentId, ann);
+        await saveGroundTruth(file_name, id, currentId, ann);
       }
-      
+
       // Also save all other images' annotations if they exist
       for (const [imageId, anns] of Object.entries(annotations)) {
         if (imageId !== currentId && anns && anns.length > 0) {
-          const img = images.find(i => i.id === imageId);
+          const img = images.find((i) => i.id === imageId);
           if (img) {
             await saveGroundTruth(img.name, id, imageId, anns);
           }
         }
       }
-      
+
       // Update localStorage to keep it in sync with database
       saveProject({ images, annotations, currentId, lang });
-    
+
       setSuccessMsg("Project saved successfully!");
       setTimeout(() => setSuccessMsg(""), 2000);
-    } catch (error) {
-
+    } catch {
       setSuccessMsg("Save failed!");
       setTimeout(() => setSuccessMsg(""), 2000);
     } finally {
@@ -189,7 +186,7 @@ const Annotate = () => {
       setHistory([initialState]);
       setHistoryIndex(0);
     }
-  }, []);
+  }, [annotations, fullOcr, history.length]);
 
   const runOcr = async () => {
     if (!currentId) return;
@@ -244,26 +241,35 @@ const Annotate = () => {
       const data = await uploadImages(
         CurrentProjectContext,
         [fileToSend],
-        boxes
+        boxes,
       );
 
       console.log("OCR result:", data);
-
+      // Extract OCR result from backend response (first image)
+      const ocrResults = data?.images?.[0]?.processing_result || [];
       // Update annotations for current image
       const updatedAnns = anns.map((ann, idx) => {
-        const text =
-          data.processing_result?.[idx]?.extracted_text?.trim() || "";
+        const text = ocrResults?.[idx]?.extracted_text?.trim() || "";
         const accuracy = ann.gt ? levenshteinSimilarity(text, ann.gt) : null;
         return { ...ann, text, accuracy };
       });
-
       setAnnotations((prev) => ({
         ...prev,
         [currentId]: updatedAnns,
       }));
-
       setSuccessMsg("OCR completed successfully!");
       setTimeout(() => setSuccessMsg(""), 2000);
+      // Persist annotations (save ground truth) to backend
+      try {
+        await saveGroundTruth(
+          currentImage.name,
+          CurrentProjectContext,
+          currentId,
+          updatedAnns,
+        );
+      } catch (err) {
+        console.error("Failed to save ground truth:", err);
+      }
     } catch (err) {
       console.error("OCR failed:", err);
     } finally {
@@ -283,12 +289,23 @@ const Annotate = () => {
   }, [annotations, currentId, images]);
 
   const handleFiles = async (items) => {
+    // Upload images to backend
+    if (items && items.length > 0 && id) {
+      try {
+        await uploadImages(
+          id,
+          items.map((i) => i.file),
+          [],
+        ); // annotations empty for initial upload
+      } catch (err) {
+        console.error("Failed to upload images:", err);
+      }
+    }
     const updated = [...images, ...items];
     setImages(updated);
     if (!currentId && updated.length > 0) {
       setCurrentId(updated[0].id);
     }
-    // setSelectedFiles(items);
   };
 
   // --- Navigation ---
@@ -305,14 +322,14 @@ const Annotate = () => {
     setCurrentId(images[next].id);
   };
 
-  // --- Clear Project ---
-  const onClearAll = () => {
-    setImages([]);
-    setAnnotations({});
-    setCurrentId(null);
-    setFullOcr({ text: "", conf: null });
-    clearProject();
-  };
+  // // --- Clear Project ---
+  // const onClearAll = () => {
+  //   setImages([]);
+  //   setAnnotations({});
+  //   setCurrentId(null);
+  //   setFullOcr({ text: "", conf: null });
+  //   clearProject();
+  // };
 
   // --- Annotations ---
   const addAnnotation = (ann) => {
@@ -387,7 +404,7 @@ const Annotate = () => {
         return newHistory;
       });
     },
-    [historyIndex]
+    [historyIndex],
   );
   const undo = useCallback(() => {
     const prevIndex = Math.max(historyIndexRef.current - 1, 0);
@@ -402,7 +419,7 @@ const Annotate = () => {
   const redo = useCallback(() => {
     const nextIndex = Math.min(
       historyIndexRef.current + 1,
-      historyRef.current.length - 1
+      historyRef.current.length - 1,
     );
     const state = historyRef.current[nextIndex];
     if (state) {
@@ -505,12 +522,7 @@ const Annotate = () => {
           </h1>
         )}
       </div>
-      {!CurrentProjectContext ? (
-        <CreateProjectForm
-          onCreateProject={handleCreateProject}
-          showProjectsLink={true}
-        />
-      ) : (
+      {CurrentProjectContext ? (
         <>
           {/* Project Information Card */}
           <div className="px-6 mb-4">
@@ -932,6 +944,11 @@ const Annotate = () => {
             }}
           />
         </>
+      ) : (
+        <CreateProjectForm
+          onCreateProject={handleCreateProject}
+          showProjectsLink={true}
+        />
       )}
       <Footer />
     </div>
@@ -939,4 +956,3 @@ const Annotate = () => {
 };
 
 export default Annotate;
-

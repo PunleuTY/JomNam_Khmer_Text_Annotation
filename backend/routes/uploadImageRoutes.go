@@ -20,6 +20,8 @@ func ImageRoutes(router gin.IRouter, imageCollection *mongo.Collection, r2Client
 
         // Save ground truth annotations
         imagesGroup.POST("/save-groundtruth", controllers.SaveGroundTruth(imageCollection))
+        // Trigger OCR for an existing image (pulls from Cloudflare and sends to ML)
+        imagesGroup.POST("/:id/ocr", controllers.TriggerOCR(imageCollection, r2Client))
     }
 }
 

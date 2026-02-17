@@ -1,8 +1,7 @@
-import { file } from "jszip";
-import { toast } from "react-toastify";
 import { apiRequest } from "@/lib/api";
+import { getAuthToken } from "@/lib/authUtils";
 
-const BACKEND_UPLOAD_URL = `${import.meta.env.VITE_ML_BASE_ENDPOINT}/images/`;
+const BACKEND_UPLOAD_URL = `${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/images/upload`;
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_ENDPOINT;
 
 // Upload images to ML backend
@@ -11,15 +10,19 @@ export const uploadImages = async (projectId, files, annotations) => {
 
   const formData = new FormData();
   formData.append("project_id", projectId);
-  formData.append("image", files[0]);
+  files.forEach((file) => formData.append("images", file));
   formData.append("annotations", JSON.stringify(annotations));
 
   console.log("upload to project", files, projectId);
   console.log("data annotation go to", annotations);
 
+  const token = getAuthToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
   const res = await fetch(BACKEND_UPLOAD_URL, {
     method: "POST",
     body: formData,
+    headers,
   });
 
   if (!res.ok) {
@@ -61,6 +64,6 @@ export const saveGroundTruth = async (
     return await res.json();
   } catch (err) {
     console.error("Error saving ground truth:", err);
-    toast.error("Error saving ground truth");
+    return null;
   }
 };
