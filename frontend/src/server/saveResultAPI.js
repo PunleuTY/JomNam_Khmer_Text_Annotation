@@ -21,12 +21,12 @@ export const loadProjectAPI = async () => {
 };
 
 // Create new project
-export const createProjectAPI = async (name, description) => {
+export const createProjectAPI = async (name, description, lang = "khm") => {
   try {
     const res = await fetch(BACKEND_PROJECT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description, lang }),
     });
 
     const data = await res.json();

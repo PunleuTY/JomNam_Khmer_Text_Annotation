@@ -12,6 +12,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/components/I18nProvider";
 import { toast } from "react-toastify";
+import { createProjectAPI } from "@/server/saveResultAPI";
 
 export default function CreateProjectDialog({
   open,
@@ -21,27 +22,35 @@ export default function CreateProjectDialog({
   const { t } = useI18n();
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!newProjectName.trim() || !newProjectDescription.trim()) {
       toast.warn(t("workspace.createProject.requiredFields"));
       return;
     }
 
-    const newProject = {
-      id: `${Date.now()}`,
-      name: newProjectName.trim(),
-      description: newProjectDescription.trim(),
-      imageCount: 0,
-      annotatedCount: 0,
-      updatedAt: new Date().toISOString().split("T")[0],
-      status: "not-started",
-    };
+    setIsLoading(true);
+    try {
+      const response = await createProjectAPI(
+        newProjectName.trim(),
+        newProjectDescription.trim()
+      );
 
-    onCreateProject(newProject);
-    setNewProjectName("");
-    setNewProjectDescription("");
-    onOpenChange(false);
+      // Handle response based on backend format
+      const createdProject = response.project || response;
+
+      toast.success("Project created successfully!");
+      onCreateProject(createdProject);
+      setNewProjectName("");
+      setNewProjectDescription("");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error creating project:", error);
+      toast.error(error.message || "Failed to create project. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -85,15 +94,19 @@ export default function CreateProjectDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleCreateProject}
             className="bg-orange-500 hover:bg-orange-600 text-white font-medium"
-            disabled={!newProjectName.trim() || !newProjectDescription.trim()}
+            disabled={!newProjectName.trim() || !newProjectDescription.trim() || isLoading}
           >
-            Create Project
+            {isLoading ? "Creating..." : "Create Project"}
           </Button>
         </DialogFooter>
       </DialogContent>

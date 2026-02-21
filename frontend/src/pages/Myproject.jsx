@@ -8,7 +8,6 @@ import {
 } from "../server/saveResultAPI";
 import { deleteProjectAPI } from "../server/deleteAPI";
 import { editProjectAPI } from "../server/getProjectResult";
-import { createProjectAPI } from "@/server/saveResultAPI";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +27,10 @@ import {
   Edit3,
   Trash2,
 } from "lucide-react";
-import { MdSmsFailed } from "react-icons/md";
 import { useI18n } from "@/components/I18nProvider";
 import Footer from "../components/Footer";
-import { toast } from "react-toastify";
+
+// Removed sampleProjects; will fetch from API
 
 export default function WorkspacePage() {
   const { t } = useI18n();
@@ -40,12 +39,11 @@ export default function WorkspacePage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [totalImages, setTotalImages] = useState({
     total_images: 0,
     annotated_images: 0,
   });
-  const [error, setError] = useState(null);
-  const [selectedProject, setSelectedProject] = useState(null);
   const [completionRate, setCompletionRate] = useState(0);
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -64,6 +62,7 @@ export default function WorkspacePage() {
   useEffect(() => {
     async function fetchProjects() {
       setLoading(true);
+      setError("");
       try {
         const data = await loadProjectAPI();
         const total = await getTotalImagesAllProjectsAPI();
@@ -77,53 +76,19 @@ export default function WorkspacePage() {
         // compute completion from freshly fetched totals (use `totals`, not state)
         const progressValue = totals.total_images
           ? Math.round(
-              ((totals.annotated_images || 0) / totals.total_images) * 100,
+              ((totals.annotated_images || 0) / totals.total_images) * 100
             )
           : 0;
         setCompletionRate(progressValue);
         console.log(progressValue);
-      } catch (err) {
-        console.error("Failed to load projects:", err);
+      } catch (e) {
+        setError("Failed to load projects");
       } finally {
         setLoading(false);
       }
     }
     fetchProjects();
   }, []);
-
-  // Load projects on component mount
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const projectsData = await loadProjectAPI();
-      // Transform backend data to match frontend format
-      const transformedProjects = projectsData.map((project) => ({
-        id: project._id || project.id,
-        name: project.name,
-        description: project.description || "",
-        imageCount: 0, // Will be updated when we have image count API
-        annotatedCount: 0,
-        updatedAt: project.updated_at
-          ? new Date(project.updated_at).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
-        status:
-          project.status === "active"
-            ? "in-progress"
-            : project.status || "not-started",
-      }));
-      setProjects(transformedProjects);
-    } catch (err) {
-      console.error("Failed to load projects:", err);
-      setError("Failed to load projects. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
@@ -142,25 +107,8 @@ export default function WorkspacePage() {
     totalAnnotated: projects.reduce((sum, p) => sum + p.annotatedCount, 0),
   };
 
-  // const handleCreateProject = (newProject) => {
-  //   setProjects([newProject, ...projects]);}
-
-  // const completionRate = Math.round(
-  //   (stats.totalAnnotated / stats.totalImages) * 100
-  // );
-
-  const handleCreateProject = async (newProjectData) => {
-    try {
-      await createProjectAPI(newProjectData.name, newProjectData.description);
-      // Reload projects to get the updated list
-      await loadProjects();
-      toast.success("Project created successfully!");
-    } catch (err) {
-      console.error("Failed to create project:", err);
-      const errorMessage = "Failed to create project. Please try again.";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    }
+  const handleCreateProject = (newProject) => {
+    setProjects([newProject, ...projects]);
   };
 
   // Handle editing a project: open edit modal
@@ -172,8 +120,6 @@ export default function WorkspacePage() {
       description: project.description || "",
       status: project.status || "not-started",
     });
-    setSelectedProject(project);
-    setEditFormData({ name: project.name, description: project.description });
     setEditModalOpen(true);
   };
 
@@ -184,7 +130,7 @@ export default function WorkspacePage() {
     try {
       const response = await editProjectAPI(
         projectToEdit.id || projectToEdit._id,
-        editFormData,
+        editFormData
       );
 
       if (response?.success || response?.message || response) {
@@ -193,15 +139,15 @@ export default function WorkspacePage() {
           prev.map((p) =>
             (p.id || p._id) === (projectToEdit.id || projectToEdit._id)
               ? { ...p, ...editFormData }
-              : p,
-          ),
+              : p
+          )
         );
       } else {
         console.error("Failed to update project", response);
         setError("Failed to update project");
       }
-    } catch (err) {
-      console.error("Error updating project", err);
+    } catch (e) {
+      console.error("Error updating project", e);
       setError("Error updating project");
     } finally {
       setEditing(false);
@@ -222,67 +168,6 @@ export default function WorkspacePage() {
     if (!project) return;
     setProjectToDelete(project);
     setDeleteModalOpen(true);
-    setSelectedProject(project);
-    setDeleteModalOpen(true);
-  };
-
-  // Save edited project
-  const handleSaveEdit = async () => {
-    if (!selectedProject) return;
-
-    try {
-      await editProjectAPI(selectedProject.id, {
-        name: editFormData.name,
-        description: editFormData.description,
-        status:
-          selectedProject.status === "in-progress"
-            ? "active"
-            : selectedProject.status,
-      });
-
-      // Update local state
-      const updatedProjects = projects.map((project) =>
-        project.id === selectedProject.id
-          ? {
-              ...project,
-              name: editFormData.name,
-              description: editFormData.description,
-            }
-          : project,
-      );
-      setProjects(updatedProjects);
-      setEditModalOpen(false);
-      setSelectedProject(null);
-      toast.success("Project updated successfully!");
-    } catch (err) {
-      console.error("Failed to update project:", err);
-      const errorMessage = "Failed to update project. Please try again.";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    }
-  };
-
-  // Confirm delete project
-  const handleConfirmDelete = async () => {
-    if (!selectedProject) return;
-
-    try {
-      await deleteProjectAPI(selectedProject.id);
-
-      // Update local state
-      const updatedProjects = projects.filter(
-        (project) => project.id !== selectedProject.id,
-      );
-      setProjects(updatedProjects);
-      setDeleteModalOpen(false);
-      setSelectedProject(null);
-      toast.success("Project deleted successfully!");
-    } catch (err) {
-      console.error("Failed to delete project:", err);
-      const errorMessage = "Failed to delete project. Please try again.";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    }
   };
 
   // Confirm deletion (called from modal)
@@ -291,7 +176,7 @@ export default function WorkspacePage() {
     setDeleting(true);
     try {
       const response = await deleteProjectAPI(
-        projectToDelete.id || projectToDelete._id,
+        projectToDelete.id || projectToDelete._id
       );
 
       // treat a truthy response or successful call as success
@@ -304,8 +189,8 @@ export default function WorkspacePage() {
         setProjects((prev) =>
           prev.filter(
             (p) =>
-              (p.id || p._id) !== (projectToDelete.id || projectToDelete._id),
-          ),
+              (p.id || p._id) !== (projectToDelete.id || projectToDelete._id)
+          )
         );
 
         // refresh global totals from server
@@ -314,12 +199,12 @@ export default function WorkspacePage() {
           setTotalImages(
             totals && typeof totals.total_images !== "undefined"
               ? totals
-              : { total_images: 0, annotated_images: 0 },
+              : { total_images: 0, annotated_images: 0 }
           );
           const progressValue =
             totals && totals.total_images
               ? Math.round(
-                  ((totals.annotated_images || 0) / totals.total_images) * 100,
+                  ((totals.annotated_images || 0) / totals.total_images) * 100
                 )
               : 0;
           setCompletionRate(progressValue);
@@ -330,8 +215,8 @@ export default function WorkspacePage() {
         console.error("Failed to delete project", response);
         setError("Failed to delete project");
       }
-    } catch (err) {
-      console.error("Error deleting project", err);
+    } catch (e) {
+      console.error("Error deleting project", e);
       setError("Error deleting project");
     } finally {
       setDeleting(false);
@@ -584,143 +469,9 @@ export default function WorkspacePage() {
             </div>
           )}
 
+          {/* Footer removed from individual project cards */}
           <Footer />
         </>
-      )}
-
-      {/* Floating Add Project Button */}
-      <button
-        onClick={() => setCreateDialogOpen(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110"
-      >
-        <Plus className="w-8 h-8" />
-      </button>
-      {/* Create Project Dialog */}
-      <CreateProjectDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onCreateProject={handleCreateProject}
-      />
-      {/* Edit Project Modal */}
-      {editModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-blue-500/10"
-            onClick={() => setEditModalOpen(false)}
-          />
-
-          {/* Modal Content */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Edit Project
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="edit-name"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Project Name
-                </label>
-                <Input
-                  id="edit-name"
-                  type="text"
-                  value={editFormData.name}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, name: e.target.value })
-                  }
-                  placeholder="Enter project name"
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="edit-description"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Description
-                </label>
-                <textarea
-                  id="edit-description"
-                  value={editFormData.description}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Enter project description"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setEditModalOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                disabled={!editFormData.name.trim()}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Delete Confirmation Modal */}
-      {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-blue-500/10"
-            onClick={() => setDeleteModalOpen(false)}
-          />
-
-          {/* Modal Content */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
-              <Trash2 className="w-6 h-6 text-red-600" />
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
-              Delete Project
-            </h2>
-
-            <p className="text-gray-600 text-center mb-6">
-              Are you sure you want to delete{" "}
-              <span className="font-semibold">"{selectedProject?.name}"</span>?
-              This action cannot be undone and all associated data will be
-              permanently removed.
-            </p>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteModalOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-              >
-                Delete Project
-              </Button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
@@ -740,6 +491,7 @@ function StatCard({ icon, label, value, color, sub }) {
 function ProjectCard({ project, onEdit, onDelete }) {
   const [totalStats, setTotalStats] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
 
   const statusColors = {
@@ -750,6 +502,7 @@ function ProjectCard({ project, onEdit, onDelete }) {
 
   async function fetchStats(id) {
     setLoading(true);
+    setError("");
     try {
       const data = await getProjectStatsAPI(id);
       setTotalStats(data);
@@ -759,8 +512,8 @@ function ProjectCard({ project, onEdit, onDelete }) {
           ? Math.round(((data.annotated_images || 0) / data.total_images) * 100)
           : 0;
       setProgress(progressValue);
-    } catch (err) {
-      console.error("Failed to fetch project stats:", err);
+    } catch (e) {
+      setError("Failed to fetch project stats");
     } finally {
       setLoading(false);
     }
@@ -813,14 +566,14 @@ function ProjectCard({ project, onEdit, onDelete }) {
           <span className="font-semibold">
             {loading
               ? "..."
-              : (totalStats?.total_images ?? project.imageCount ?? 0)}
+              : totalStats?.total_images ?? project.imageCount ?? 0}
           </span>{" "}
           Images
         </div>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
           <span className="font-semibold">
-            {loading ? "..." : (totalStats?.annotated_images ?? 0)}
+            {loading ? "..." : totalStats?.annotated_images ?? 0}
           </span>{" "}
           Annotated
         </div>
