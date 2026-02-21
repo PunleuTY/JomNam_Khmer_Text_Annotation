@@ -283,7 +283,10 @@ const Annotate = () => {
   }, [annotations, currentId, images]);
 
   const handleFiles = async (items) => {
-    const updated = [...images, ...items];
+    // Deduplicate: only add files that don't already exist by id
+    const existingIds = new Set(images.map(img => img.id));
+    const newItems = items.filter(item => !existingIds.has(item.id));
+    const updated = [...images, ...newItems];
     setImages(updated);
     if (!currentId && updated.length > 0) {
       setCurrentId(updated[0].id);
