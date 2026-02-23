@@ -5,13 +5,22 @@ export const loadProjectAPI = async () => {
   try {
     const res = await apiRequest("/projects");
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      const text = await res.text();
+      return {
+        success: false,
+        error: `HTTP error! status: ${res.status} - ${text}`,
+        status: res.status,
+      };
     }
     const data = await res.json();
-    return data.projects || data;
+    const payload =
+      data && Object.prototype.hasOwnProperty.call(data, "projects")
+        ? data.projects
+        : data;
+    return { success: true, data: payload };
   } catch (e) {
     console.error("Failed to load projects:", e.message);
-    throw e;
+    return { success: false, error: e?.message || String(e) };
   }
 };
 
@@ -22,15 +31,18 @@ export const createProjectAPI = async (name, description) => {
       method: "POST",
       body: JSON.stringify({ name, description }),
     });
-
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.message || `HTTP ${res.status}: ${res.statusText}`);
+      return {
+        success: false,
+        error: data?.message || `HTTP ${res.status}: ${res.statusText}`,
+        status: res.status,
+      };
     }
-    return data;
+    return { success: true, data };
   } catch (e) {
     console.error("createProjectAPI error:", e);
-    throw e;
+    return { success: false, error: e?.message || String(e) };
   }
 };
 
@@ -40,15 +52,20 @@ export const getImageByProjectAPI = async (id) => {
     const res = await apiRequest(`/projects/${id}/images`, {
       method: "GET",
     });
-
     if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
+      const text = await res.text();
+      return {
+        success: false,
+        error: `HTTP error! Status: ${res.status} - ${text}`,
+        status: res.status,
+      };
     }
 
-    return await res.json();
+    const data = await res.json();
+    return { success: true, data };
   } catch (e) {
     console.error("Failed to fetch project images:", e.message);
-    return null; // fallback
+    return { success: false, error: e?.message || String(e) };
   }
 };
 
@@ -58,15 +75,20 @@ export const getProjectStatsAPI = async (id) => {
     const res = await apiRequest(`/projects/${id}/stats`, {
       method: "GET",
     });
-
     if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
+      const text = await res.text();
+      return {
+        success: false,
+        error: `HTTP error! Status: ${res.status} - ${text}`,
+        status: res.status,
+      };
     }
 
-    return await res.json();
+    const data = await res.json();
+    return { success: true, data };
   } catch (e) {
     console.error("Failed to fetch project stats:", e.message);
-    return null;
+    return { success: false, error: e?.message || String(e) };
   }
 };
 
@@ -76,15 +98,20 @@ export const getTotalImagesAllProjectsAPI = async () => {
     const res = await apiRequest("/projects/stats/total", {
       method: "GET",
     });
-
     if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
+      const text = await res.text();
+      return {
+        success: false,
+        error: `HTTP error! Status: ${res.status} - ${text}`,
+        status: res.status,
+      };
     }
 
-    return await res.json();
+    const data = await res.json();
+    return { success: true, data };
   } catch (e) {
     console.error("Failed to fetch total images stats:", e.message);
-    return null;
+    return { success: false, error: e?.message || String(e) };
   }
 };
 
@@ -95,22 +122,20 @@ export const saveResultAPI = async (resultData) => {
       method: "POST",
       body: JSON.stringify(resultData),
     });
-
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const text = await response.text();
+      return {
+        success: false,
+        error: `HTTP error! status: ${response.status} - ${text}`,
+        status: response.status,
+      };
     }
 
     const data = await response.json();
-    return {
-      success: true,
-      data,
-    };
+    return { success: true, data };
   } catch (error) {
     console.error("Error saving result:", error);
-    return {
-      success: false,
-      error: error.message,
-    };
+    return { success: false, error: error?.message || String(error) };
   }
 };
 
@@ -120,15 +145,23 @@ export const getProjectByIdAPI = async (id) => {
     const res = await apiRequest(`/projects/${id}`, {
       method: "GET",
     });
-
     if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
+      const text = await res.text();
+      return {
+        success: false,
+        error: `HTTP error! Status: ${res.status} - ${text}`,
+        status: res.status,
+      };
     }
 
     const data = await res.json();
-    return data.project || data;
+    const payload =
+      data && Object.prototype.hasOwnProperty.call(data, "project")
+        ? data.project
+        : data;
+    return { success: true, data: payload };
   } catch (e) {
     console.error("Failed to fetch project details:", e.message);
-    return null;
+    return { success: false, error: e?.message || String(e) };
   }
 };

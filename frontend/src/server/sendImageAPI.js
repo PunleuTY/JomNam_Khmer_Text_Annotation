@@ -24,12 +24,22 @@ export const uploadImages = async (projectId, files, annotations) => {
     body: formData,
     headers,
   });
+  try {
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        success: false,
+        error: `Failed to upload images: ${text}`,
+        status: res.status,
+      };
+    }
 
-  if (!res.ok) {
-    throw new Error("Failed to upload images");
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err) {
+    console.error("uploadImages error:", err);
+    return { success: false, error: err?.message || String(err) };
   }
-
-  return await res.json();
 };
 
 // Save ground truth annotations to backend
@@ -60,10 +70,18 @@ export const saveGroundTruth = async (
       method: "POST",
       body: JSON.stringify(payload),
     });
-
-    return await res.json();
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        success: false,
+        error: `HTTP error: ${res.status} - ${text}`,
+        status: res.status,
+      };
+    }
+    const data = await res.json();
+    return { success: true, data };
   } catch (err) {
     console.error("Error saving ground truth:", err);
-    return null;
+    return { success: false, error: err?.message || String(err) };
   }
 };

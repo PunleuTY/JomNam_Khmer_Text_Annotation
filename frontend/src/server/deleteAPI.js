@@ -7,16 +7,26 @@ export const deleteProjectAPI = async (projectId) => {
     });
 
     if (res.status === 204) {
-      return { success: true, message: "Project deleted successfully" };
+      return {
+        success: true,
+        data: null,
+        message: "Project deleted successfully",
+      };
     }
 
     const data = await res.json();
+
     if (!res.ok) {
-      throw new Error(data.message || `HTTP ${res.status}: ${res.statusText}`);
+      return {
+        success: false,
+        error: data?.message || `HTTP ${res.status}: ${res.statusText}`,
+        status: res.status,
+      };
     }
-    return data;
+
+    return { success: true, data };
   } catch (e) {
     console.error("deleteProjectAPI error:", e);
-    throw e;
+    return { success: false, error: e?.message || String(e) };
   }
 };

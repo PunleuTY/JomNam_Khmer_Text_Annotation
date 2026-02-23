@@ -10,12 +10,17 @@ export const editProjectAPI = async (projectId, updatedData) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error response:", errorText);
-      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      return {
+        success: false,
+        error: `HTTP error! status: ${response.status} - ${errorText}`,
+        status: response.status,
+      };
     }
 
-    return await response.json();
+    const data = await response.json();
+    return { success: true, data };
   } catch (error) {
     console.error("Error in editProjectAPI:", error);
-    throw error;
+    return { success: false, error: error?.message || String(error) };
   }
 };

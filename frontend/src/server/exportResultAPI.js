@@ -7,12 +7,18 @@ export const getResultById = async (id) => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const text = await response.text();
+      return {
+        success: false,
+        error: `HTTP error! status: ${response.status} - ${text}`,
+        status: response.status,
+      };
     }
 
-    return await response.json();
+    const data = await response.json();
+    return { success: true, data };
   } catch (error) {
     console.error("Error fetching result by ID:", error);
-    throw error;
+    return { success: false, error: error?.message || String(error) };
   }
 };

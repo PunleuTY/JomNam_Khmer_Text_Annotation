@@ -60,17 +60,25 @@ export default function WorkspacePage() {
     status: "not-started",
   });
   const [editing, setEditing] = useState(false);
+  const STORAGE_KEY = "selectedProjectId";
 
   useEffect(() => {
     async function fetchProjects() {
       setLoading(true);
       try {
-        const data = await loadProjectAPI();
-        const total = await getTotalImagesAllProjectsAPI();
-        // API returns { total_images, annotated_images } or null on error
+        const projectsRes = await loadProjectAPI();
+        const totalRes = await getTotalImagesAllProjectsAPI();
+
+        if (!projectsRes || !projectsRes.success) {
+          const msg = projectsRes?.error || "Failed to load projects";
+          throw new Error(msg);
+        }
+
+        const data = projectsRes.data || [];
+
         const totals =
-          total && typeof total.total_images !== "undefined"
-            ? total
+          totalRes && totalRes.success && totalRes.data
+            ? totalRes.data
             : { total_images: 0, annotated_images: 0 };
         setTotalImages(totals);
         setProjects(data);
@@ -91,17 +99,19 @@ export default function WorkspacePage() {
     fetchProjects();
   }, []);
 
-  // Load projects on component mount
-  useEffect(() => {
-    loadProjects();
-  }, []);
+  // Note: project loading handled by fetchProjects and explicit calls to `loadProjects`
 
   const loadProjects = async () => {
     try {
       setLoading(true);
       setError(null);
-      const projectsData = await loadProjectAPI();
+      const projectsRes = await loadProjectAPI();
+      if (!projectsRes || !projectsRes.success) {
+        const msg = projectsRes?.error || "Failed to load projects";
+        throw new Error(msg);
+      }
       // Transform backend data to match frontend format
+      const projectsData = projectsRes.data || [];
       const transformedProjects = projectsData.map((project) => ({
         id: project._id || project.id,
         name: project.name,
@@ -151,7 +161,14 @@ export default function WorkspacePage() {
 
   const handleCreateProject = async (newProjectData) => {
     try {
-      await createProjectAPI(newProjectData.name, newProjectData.description);
+      const res = await createProjectAPI(
+        newProjectData.name,
+        newProjectData.description,
+      );
+      if (!res || !res.success) {
+        const msg = res?.error || "Failed to create project";
+        throw new Error(msg);
+      }
       // Reload projects to get the updated list
       await loadProjects();
       toast.success("Project created successfully!");
@@ -187,7 +204,7 @@ export default function WorkspacePage() {
         editFormData,
       );
 
-      if (response?.success || response?.message || response) {
+      if (response && response.success) {
         // Update the project in the list
         setProjects((prev) =>
           prev.map((p) =>
@@ -198,7 +215,7 @@ export default function WorkspacePage() {
         );
       } else {
         console.error("Failed to update project", response);
-        setError("Failed to update project");
+        setError(response?.error || "Failed to update project");
       }
     } catch (err) {
       console.error("Error updating project", err);
@@ -231,7 +248,7 @@ export default function WorkspacePage() {
     if (!selectedProject) return;
 
     try {
-      await editProjectAPI(selectedProject.id, {
+      const res = await editProjectAPI(selectedProject.id, {
         name: editFormData.name,
         description: editFormData.description,
         status:
@@ -239,6 +256,9 @@ export default function WorkspacePage() {
             ? "active"
             : selectedProject.status,
       });
+      if (!res || !res.success) {
+        throw new Error(res?.error || "Failed to update project");
+      }
 
       // Update local state
       const updatedProjects = projects.map((project) =>
@@ -267,7 +287,10 @@ export default function WorkspacePage() {
     if (!selectedProject) return;
 
     try {
-      await deleteProjectAPI(selectedProject.id);
+      const res = await deleteProjectAPI(selectedProject.id);
+      if (!res || !res.success) {
+        throw new Error(res?.error || "Failed to delete project");
+      }
 
       // Update local state
       const updatedProjects = projects.filter(
@@ -276,6 +299,14 @@ export default function WorkspacePage() {
       setProjects(updatedProjects);
       setDeleteModalOpen(false);
       setSelectedProject(null);
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored && stored === String(selectedProject.id)) {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {
+        console.warn("Failed to clear selected project from storage", e);
+      }
       toast.success("Project deleted successfully!");
     } catch (err) {
       console.error("Failed to delete project:", err);
@@ -294,13 +325,8 @@ export default function WorkspacePage() {
         projectToDelete.id || projectToDelete._id,
       );
 
-      // treat a truthy response or successful call as success
-      if (
-        response === undefined ||
-        response === null ||
-        response?.success ||
-        response?.message
-      ) {
+      // require explicit success
+      if (response && response.success) {
         setProjects((prev) =>
           prev.filter(
             (p) =>
@@ -310,12 +336,12 @@ export default function WorkspacePage() {
 
         // refresh global totals from server
         try {
-          const totals = await getTotalImagesAllProjectsAPI();
-          setTotalImages(
-            totals && typeof totals.total_images !== "undefined"
-              ? totals
-              : { total_images: 0, annotated_images: 0 },
-          );
+          const totalsRes = await getTotalImagesAllProjectsAPI();
+          const totals =
+            totalsRes && totalsRes.success && totalsRes.data
+              ? totalsRes.data
+              : { total_images: 0, annotated_images: 0 };
+          setTotalImages(totals);
           const progressValue =
             totals && totals.total_images
               ? Math.round(
@@ -325,6 +351,17 @@ export default function WorkspacePage() {
           setCompletionRate(progressValue);
         } catch (e) {
           console.warn("Failed to refresh totals after delete", e);
+        }
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (
+            stored &&
+            stored === String(projectToDelete.id || projectToDelete._id)
+          ) {
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } catch (e) {
+          console.warn("Failed to clear selected project from storage", e);
         }
       } else {
         console.error("Failed to delete project", response);
@@ -751,7 +788,11 @@ function ProjectCard({ project, onEdit, onDelete }) {
   async function fetchStats(id) {
     setLoading(true);
     try {
-      const data = await getProjectStatsAPI(id);
+      const res = await getProjectStatsAPI(id);
+      if (!res || !res.success) {
+        throw new Error(res?.error || "Failed to fetch stats");
+      }
+      const data = res.data || null;
       setTotalStats(data);
       // compute progress from the fetched data (use `data`, not state `totalStats`)
       const progressValue =
@@ -841,7 +882,16 @@ function ProjectCard({ project, onEdit, onDelete }) {
           </div>
         </div>
         <span className="text-sm font-bold w-12 text-right">{progress}%</span>
-        <Link to={`/Annotate/${project.id}`}>
+        <Link
+          to={`/Annotate/${project.id}`}
+          onClick={() => {
+            try {
+              localStorage.setItem("selectedProjectId", project.id);
+            } catch (e) {
+              /* ignore */
+            }
+          }}
+        >
           <Button className="bg-slate-800 hover:bg-slate-900 text-white gap-2">
             Open <ArrowRight className="w-4 h-4" />
           </Button>

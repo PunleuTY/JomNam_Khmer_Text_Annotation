@@ -87,6 +87,20 @@ const Annotate = () => {
   const { id } = useParams();
   const CurrentProjectContext = id;
   const navigate = useNavigate();
+  const STORAGE_KEY = "selectedProjectId";
+
+  // If route has no id, try to restore last selected project from localStorage
+  useEffect(() => {
+    if (id) return;
+    try {
+      const last = localStorage.getItem(STORAGE_KEY);
+      if (last) {
+        navigate(`/annotate/${last}`);
+      }
+    } catch (e) {
+      console.warn("Failed to read selected project from storage", e);
+    }
+  }, [id, navigate]);
 
   const currentImage = images.find((i) => i.id === currentId);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -107,14 +121,22 @@ const Annotate = () => {
       setProjectLoading(true);
       try {
         // Load project details
-        const projectData = await getProjectByIdAPI(id);
-        if (projectData) {
-          setProject(projectData);
+        const projectRes = await getProjectByIdAPI(id);
+        if (projectRes && projectRes.success) {
+          setProject(projectRes.data);
+          try {
+            localStorage.setItem(STORAGE_KEY, id);
+          } catch (e) {
+            console.warn("Failed to write selected project to storage", e);
+          }
+        } else if (projectRes && !projectRes.success) {
+          console.warn("Failed to load project details:", projectRes.error);
         }
 
         // Load project images
-        const data = await getImageByProjectAPI(id);
-        if (data) {
+        const imagesRes = await getImageByProjectAPI(id);
+        if (imagesRes && imagesRes.success) {
+          const data = imagesRes.data || [];
           const processedImages = data.map((img) => ({
             ...img,
             url: img.url || img.base64, // Prefer public URL, fallback to base64 if present
@@ -149,7 +171,10 @@ const Annotate = () => {
       if (currentId && annotations[currentId]) {
         const ann = annotations[currentId] || [];
         const file_name = currentImage ? currentImage.name : "unknown.png";
-        await saveGroundTruth(file_name, id, currentId, ann);
+        const res = await saveGroundTruth(file_name, id, currentId, ann);
+        if (!res || !res.success) {
+          console.warn("Failed to save ground truth:", res?.error);
+        }
       }
 
       // Also save all other images' annotations if they exist
@@ -157,7 +182,14 @@ const Annotate = () => {
         if (imageId !== currentId && anns && anns.length > 0) {
           const img = images.find((i) => i.id === imageId);
           if (img) {
-            await saveGroundTruth(img.name, id, imageId, anns);
+            const res = await saveGroundTruth(img.name, id, imageId, anns);
+            if (!res || !res.success) {
+              console.warn(
+                "Failed to save ground truth for image:",
+                img.name,
+                res?.error,
+              );
+            }
           }
         }
       }
@@ -238,12 +270,18 @@ const Annotate = () => {
         return;
       }
 
-      const data = await uploadImages(
+      const uploadRes = await uploadImages(
         CurrentProjectContext,
         [fileToSend],
         boxes,
       );
 
+      if (!uploadRes || !uploadRes.success) {
+        console.error("OCR upload failed:", uploadRes?.error);
+        return;
+      }
+
+      const data = uploadRes.data || {};
       console.log("OCR result:", data);
       // Extract OCR result from backend response (first image)
       const ocrResults = data?.images?.[0]?.processing_result || [];
@@ -261,12 +299,15 @@ const Annotate = () => {
       setTimeout(() => setSuccessMsg(""), 2000);
       // Persist annotations (save ground truth) to backend
       try {
-        await saveGroundTruth(
+        const res = await saveGroundTruth(
           currentImage.name,
           CurrentProjectContext,
           currentId,
           updatedAnns,
         );
+        if (!res || !res.success) {
+          console.warn("Failed to save ground truth:", res?.error);
+        }
       } catch (err) {
         console.error("Failed to save ground truth:", err);
       }
@@ -292,11 +333,14 @@ const Annotate = () => {
     // Upload images to backend
     if (items && items.length > 0 && id) {
       try {
-        await uploadImages(
+        const uploadRes = await uploadImages(
           id,
           items.map((i) => i.file),
           [],
         ); // annotations empty for initial upload
+        if (!uploadRes || !uploadRes.success) {
+          console.warn("Failed to upload images:", uploadRes?.error);
+        }
       } catch (err) {
         console.error("Failed to upload images:", err);
       }
