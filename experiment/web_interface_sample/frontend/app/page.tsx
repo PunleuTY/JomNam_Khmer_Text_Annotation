@@ -1,178 +1,192 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { CanvasAnnotator } from '@/components/canvas-annotator'
-import { AnnotationsPanel } from '@/components/annotations-panel'
-import { InstructionsPanel } from '@/components/instructions-panel'
-import { Button } from '@/components/ui/button'
+import React from "react";
+import { CanvasAnnotator } from "@/components/canvas-annotator-detection";
+import { AnnotationsPanel } from "@/components/annotations-panel";
+import { InstructionsPanel } from "@/components/instructions-panel";
+import { Button } from "@/components/ui/Detection/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { useState, useCallback, useRef } from 'react'
-import { Download, Trash2, Upload } from 'lucide-react'
-import { exportToJSON, exportToCOCO, exportToPaddleOCR } from '@/lib/export-utils'
+} from "@/components/ui/Detection/select";
+import { useState, useCallback, useRef } from "react";
+import { Download, Trash2, Upload } from "lucide-react";
+import {
+  exportToJSON,
+  exportToCOCO,
+  exportToPaddleOCR,
+} from "@/lib/export-utils";
 
-export type AnnotationMode = 'line' | 'word'
+export type AnnotationMode = "line" | "word";
 
 interface Annotation {
-  id: string
-  text: string
-  x: number
-  y: number
-  width: number
-  height: number
-  mode: AnnotationMode
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  mode: AnnotationMode;
 }
 
 export default function AnnotationPage() {
-  const [imageUrl, setImageUrl] = useState<string>('')
-  const [annotationMode, setAnnotationMode] = useState<AnnotationMode>('word')
-  const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [annotationMode, setAnnotationMode] = useState<AnnotationMode>("word");
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [currentBox, setCurrentBox] = useState<{
-    x: number
-    y: number
-    width: number
-    height: number
-  } | null>(null)
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleImageUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    const validTypes = ['image/png', 'image/jpeg']
-    if (!validTypes.includes(file.type)) {
-      alert('Please upload PNG or JPG format only')
-      return
-    }
+      const validTypes = ["image/png", "image/jpeg"];
+      if (!validTypes.includes(file.type)) {
+        alert("Please upload PNG or JPG format only");
+        return;
+      }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setImageUrl(event.target?.result as string)
-      setAnnotations([])
-    }
-    reader.readAsDataURL(file)
-  }, [])
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImageUrl(event.target?.result as string);
+        setAnnotations([]);
+      };
+      reader.readAsDataURL(file);
+    },
+    [],
+  );
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = e.currentTarget
-      const rect = canvas.getBoundingClientRect()
-      const x = (e.clientX - rect.left) * (canvas.width / rect.width)
-      const y = (e.clientY - rect.top) * (canvas.height / rect.height)
+      const canvas = e.currentTarget;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-      setStartPoint({ x, y })
-      setIsDrawing(true)
+      setStartPoint({ x, y });
+      setIsDrawing(true);
     },
-    []
-  )
+    [],
+  );
 
   const handleCanvasMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isDrawing || !startPoint) return
+      if (!isDrawing || !startPoint) return;
 
-      const canvas = e.currentTarget
-      const rect = canvas.getBoundingClientRect()
-      const x = (e.clientX - rect.left) * (canvas.width / rect.width)
-      const y = (e.clientY - rect.top) * (canvas.height / rect.height)
+      const canvas = e.currentTarget;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-      const width = x - startPoint.x
-      const height = y - startPoint.y
+      const width = x - startPoint.x;
+      const height = y - startPoint.y;
 
       setCurrentBox({
         x: Math.min(startPoint.x, x),
         y: Math.min(startPoint.y, y),
         width: Math.abs(width),
         height: Math.abs(height),
-      })
+      });
     },
-    [isDrawing, startPoint]
-  )
+    [isDrawing, startPoint],
+  );
 
   const handleCanvasMouseUp = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isDrawing || !startPoint || !currentBox) return
+      if (!isDrawing || !startPoint || !currentBox) return;
 
       if (currentBox.width > 10 && currentBox.height > 10) {
         const newAnnotation: Annotation = {
           id: `anno-${Date.now()}`,
-          text: '',
+          text: "",
           x: Math.round(currentBox.x),
           y: Math.round(currentBox.y),
           width: Math.round(currentBox.width),
           height: Math.round(currentBox.height),
           mode: annotationMode,
-        }
-        setAnnotations((prev) => [...prev, newAnnotation])
+        };
+        setAnnotations((prev) => [...prev, newAnnotation]);
       }
 
-      setIsDrawing(false)
-      setCurrentBox(null)
-      setStartPoint(null)
+      setIsDrawing(false);
+      setCurrentBox(null);
+      setStartPoint(null);
     },
-    [isDrawing, startPoint, currentBox, annotationMode]
-  )
+    [isDrawing, startPoint, currentBox, annotationMode],
+  );
 
   const handleUpdateAnnotation = useCallback((id: string, text: string) => {
     setAnnotations((prev) =>
-      prev.map((anno) => (anno.id === id ? { ...anno, text } : anno))
-    )
-  }, [])
+      prev.map((anno) => (anno.id === id ? { ...anno, text } : anno)),
+    );
+  }, []);
 
   const handleDeleteAnnotation = useCallback((id: string) => {
-    setAnnotations((prev) => prev.filter((anno) => anno.id !== id))
-  }, [])
+    setAnnotations((prev) => prev.filter((anno) => anno.id !== id));
+  }, []);
 
   const handleClearAll = useCallback(() => {
-    setAnnotations([])
-  }, [])
+    setAnnotations([]);
+  }, []);
 
   const handleExportJSON = useCallback(() => {
-    const data = exportToJSON(annotations)
+    const data = exportToJSON(annotations);
     const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'annotations.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [annotations])
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "annotations.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [annotations]);
 
   const handleExportCOCO = useCallback(() => {
-    const data = exportToCOCO(annotations, imageUrl)
+    const data = exportToCOCO(annotations, imageUrl);
     const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'annotations_coco.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [annotations, imageUrl])
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "annotations_coco.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [annotations, imageUrl]);
 
   const handleExportPaddleOCR = useCallback(() => {
-    const data = exportToPaddleOCR(annotations)
-    const text = data.join('\n')
-    const blob = new Blob([text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'annotations_paddleocr.txt'
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [annotations])
+    const data = exportToPaddleOCR(annotations);
+    const text = data.join("\n");
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "annotations_paddleocr.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [annotations]);
 
   return (
-    <main className="min-h-screen" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>
+    <main
+      className="min-h-screen"
+      style={{
+        background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+      }}
+    >
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Header */}
         <div className="mb-8 text-center">
@@ -203,8 +217,13 @@ export default function AnnotationPage() {
           </Button>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Annotation Mode:</span>
-            <Select value={annotationMode} onValueChange={(value: any) => setAnnotationMode(value)}>
+            <span className="text-sm font-medium text-gray-700">
+              Annotation Mode:
+            </span>
+            <Select
+              value={annotationMode}
+              onValueChange={(value: any) => setAnnotationMode(value)}
+            >
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -291,5 +310,5 @@ export default function AnnotationPage() {
         </div>
       </div>
     </main>
-  )
+  );
 }

@@ -1,24 +1,24 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Trash2 } from 'lucide-react'
+import React, { useState } from "react";
+import { Button } from "@/components/ui/Detection/button";
+import { Textarea } from "@/components/ui/Detection/textarea";
+import { Trash2 } from "lucide-react";
 
 interface Annotation {
-  id: string
-  text: string
-  x: number
-  y: number
-  width: number
-  height: number
-  mode: 'line' | 'word'
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  mode: "line" | "word";
 }
 
 interface Props {
-  annotations: Annotation[]
-  onUpdateText: (id: string, text: string) => void
-  onDelete: (id: string) => void
+  annotations: Annotation[];
+  onUpdateText: (id: string, text: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export function AnnotationsPanel({
@@ -26,16 +26,22 @@ export function AnnotationsPanel({
   onUpdateText,
   onDelete,
 }: Props) {
-  const lineAnnotations = annotations.filter((a) => a.mode === 'line')
-  const wordAnnotations = annotations.filter((a) => a.mode === 'word')
+  const lineAnnotations = annotations.filter((a) => a.mode === "line");
+  const wordAnnotations = annotations.filter((a) => a.mode === "word");
 
-  const renderAnnotationItem = (anno: Annotation, index: number, label: string) => (
+  const renderAnnotationItem = (
+    anno: Annotation,
+    index: number,
+    label: string,
+  ) => (
     <div key={anno.id} className="border border-gray-300 rounded p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="inline-block px-2 py-1 text-xs font-bold text-white rounded"
+        <span
+          className="inline-block px-2 py-1 text-xs font-bold text-white rounded"
           style={{
-            backgroundColor: anno.mode === 'line' ? '#7C3AED' : '#6366F1'
-          }}>
+            backgroundColor: anno.mode === "line" ? "#7C3AED" : "#6366F1",
+          }}
+        >
           {label} #{index + 1}
         </span>
         <Button
@@ -50,14 +56,14 @@ export function AnnotationsPanel({
       <Textarea
         value={anno.text}
         onChange={(e) => onUpdateText(anno.id, e.target.value)}
-        placeholder={`Enter Khmer text here... (${anno.mode === 'line' ? 'Line' : 'Word'})`}
+        placeholder={`Enter Khmer text here... (${anno.mode === "line" ? "Line" : "Word"})`}
         className="mb-3 min-h-16"
       />
       <div className="text-xs text-gray-500">
         x: {anno.x}, y: {anno.y}, w: {anno.width}, h: {anno.height}
       </div>
     </div>
-  )
+  );
 
   return (
     <div>
@@ -70,8 +76,12 @@ export function AnnotationsPanel({
         </div>
       ) : (
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {lineAnnotations.map((anno, idx) => renderAnnotationItem(anno, idx, 'LINE'))}
-          {wordAnnotations.map((anno, idx) => renderAnnotationItem(anno, idx, 'WORD'))}
+          {lineAnnotations.map((anno, idx) =>
+            renderAnnotationItem(anno, idx, "LINE"),
+          )}
+          {wordAnnotations.map((anno, idx) =>
+            renderAnnotationItem(anno, idx, "WORD"),
+          )}
         </div>
       )}
 
@@ -96,5 +106,5 @@ export function AnnotationsPanel({
         </div>
       )}
     </div>
-  )
+  );
 }
