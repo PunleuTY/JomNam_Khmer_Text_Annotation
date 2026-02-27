@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/Detection/select";
 import { useState, useCallback, useRef } from "react";
-import { Download, Trash2, Upload } from "lucide-react";
+import { Download, Trash2, Upload, Wand } from "lucide-react";
 import {
   exportToJSON,
   exportToCOCO,
@@ -46,6 +46,7 @@ export default function AnnotationPage() {
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
     null,
   );
+  const [isDetecting, setIsDetecting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback(
@@ -79,10 +80,68 @@ export default function AnnotationPage() {
       } catch (error) {
         console.error("Upload error:", error);
         alert("Failed to upload image. Please try again.");
+      } finally {
+        // Reset file input to allow re-uploading the same file
+        e.target.value = "";
       }
     },
     [],
   );
+
+  const handleAutoAnnotate = useCallback(async () => {
+    if (!imageUrl) {
+      alert("Please upload an image first");
+      return;
+    }
+
+    setIsDetecting(true);
+
+    try {
+      // Get the backend URL from environment or use default
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      
+      const response = await fetch(`${backendUrl}/detect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: imageUrl,
+          mode: annotationMode,  // Send "word" or "line" mode
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to detect text");
+      }
+
+      // Convert backend boxes to frontend annotations
+      const newAnnotations: Annotation[] = data.boxes.map((box: any, index: number) => ({
+        id: `auto-${Date.now()}-${index}`,
+        text: box.text || "",
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        mode: annotationMode,
+      }));
+
+      console.log(`Auto-annotated ${newAnnotations.length} text regions`);
+      console.log("Image size from backend:", data.image_width, "x", data.image_height);
+      console.log("First 3 boxes:", newAnnotations.slice(0, 3).map(a => ({
+        x: a.x, y: a.y, width: a.width, height: a.height, text: a.text
+      })));
+      
+      setAnnotations(newAnnotations);
+    } catch (error) {
+      console.error("Auto-annotation error:", error);
+      alert("Failed to auto-annotate. Make sure the backend server is running at http://localhost:8000");
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [imageUrl, annotationMode]);
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -256,6 +315,15 @@ export default function AnnotationPage() {
           >
             <Trash2 className="h-4 w-4" />
             Clear Current Box
+          </Button>
+
+          <Button
+            onClick={handleAutoAnnotate}
+            disabled={!imageUrl || isDetecting}
+            className="gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand className={`h-4 w-4 ${isDetecting ? "animate-pulse" : ""}`} />
+            {isDetecting ? "Detecting..." : "Auto-Annotate"}
           </Button>
 
           <div className="ml-auto flex gap-2">

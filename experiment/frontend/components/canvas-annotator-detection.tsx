@@ -41,8 +41,11 @@ export function CanvasAnnotator({
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
-      canvas.width = img.width
-      canvas.height = img.height
+      // Set canvas to match the actual loaded image size
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      console.log(`Canvas set to: ${canvas.width} x ${canvas.height}`)
+      
       ctx.drawImage(img, 0, 0)
 
       // Draw existing annotations
