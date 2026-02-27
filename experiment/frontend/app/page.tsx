@@ -88,7 +88,7 @@ export default function AnnotationPage() {
     [],
   );
 
-  const handleAutoAnnotate = useCallback(async () => {
+  const handleAnnotate = useCallback(async () => {
     if (!imageUrl) {
       alert("Please upload an image first");
       return;
@@ -99,8 +99,8 @@ export default function AnnotationPage() {
     try {
       // Get the backend URL from environment or use default
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-      
-      const response = await fetch(`${backendUrl}/detect`, {
+
+      const response = await fetch(`${backendUrl}/detect-only`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -117,10 +117,10 @@ export default function AnnotationPage() {
         throw new Error(data.error || "Failed to detect text");
       }
 
-      // Convert backend boxes to frontend annotations
+      // Convert backend boxes to frontend annotations (detection only, no text)
       const newAnnotations: Annotation[] = data.boxes.map((box: any, index: number) => ({
         id: `auto-${Date.now()}-${index}`,
-        text: box.text || "",
+        text: "",  // Empty text for detection-only mode
         x: box.x,
         y: box.y,
         width: box.width,
@@ -128,16 +128,71 @@ export default function AnnotationPage() {
         mode: annotationMode,
       }));
 
-      console.log(`Auto-annotated ${newAnnotations.length} text regions`);
+      console.log(`Detected ${newAnnotations.length} text regions`);
+      console.log("Image size from backend:", data.image_width, "x", data.image_height);
+      console.log("First 3 boxes:", newAnnotations.slice(0, 3).map(a => ({
+        x: a.x, y: a.y, width: a.width, height: a.height
+      })));
+
+      setAnnotations(newAnnotations);
+    } catch (error) {
+      console.error("Annotation error:", error);
+      alert("Failed to annotate. Make sure the backend server is running at http://localhost:8000");
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [imageUrl, annotationMode]);
+
+  const handleAnnotateExtract = useCallback(async () => {
+    if (!imageUrl) {
+      alert("Please upload an image first");
+      return;
+    }
+
+    setIsDetecting(true);
+
+    try {
+      // Get the backend URL from environment or use default
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+      const response = await fetch(`${backendUrl}/detect-and-extract`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: imageUrl,
+          mode: annotationMode,  // Send "word" or "line" mode
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to detect and extract text");
+      }
+
+      // Convert backend boxes to frontend annotations (with extracted text)
+      const newAnnotations: Annotation[] = data.boxes.map((box: any, index: number) => ({
+        id: `auto-${Date.now()}-${index}`,
+        text: box.text || "",  // Use extracted text from Tesseract
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        mode: annotationMode,
+      }));
+
+      console.log(`Detected and extracted ${newAnnotations.length} text regions`);
       console.log("Image size from backend:", data.image_width, "x", data.image_height);
       console.log("First 3 boxes:", newAnnotations.slice(0, 3).map(a => ({
         x: a.x, y: a.y, width: a.width, height: a.height, text: a.text
       })));
-      
+
       setAnnotations(newAnnotations);
     } catch (error) {
-      console.error("Auto-annotation error:", error);
-      alert("Failed to auto-annotate. Make sure the backend server is running at http://localhost:8000");
+      console.error("Annotation & extraction error:", error);
+      alert("Failed to annotate and extract. Make sure the backend server is running at http://localhost:8000");
     } finally {
       setIsDetecting(false);
     }
@@ -318,12 +373,21 @@ export default function AnnotationPage() {
           </Button>
 
           <Button
-            onClick={handleAutoAnnotate}
+            onClick={handleAnnotate}
             disabled={!imageUrl || isDetecting}
             className="gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Wand className={`h-4 w-4 ${isDetecting ? "animate-pulse" : ""}`} />
-            {isDetecting ? "Detecting..." : "Auto-Annotate"}
+            {isDetecting ? "Detecting..." : "Annotate Only"}
+          </Button>
+
+          <Button
+            onClick={handleAnnotateExtract}
+            disabled={!imageUrl || isDetecting}
+            className="gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand className={`h-4 w-4 ${isDetecting ? "animate-pulse" : ""}`} />
+            {isDetecting ? "Extracting..." : "Annotate & Extract"}
           </Button>
 
           <div className="ml-auto flex gap-2">

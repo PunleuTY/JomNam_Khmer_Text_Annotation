@@ -4,3 +4,9 @@ torchvision
 tqdm
 Pillow
 numpy
+fastapi
+uvicorn
+python-multipart
+pytesseract
+opencv-python
+python-dotenv
