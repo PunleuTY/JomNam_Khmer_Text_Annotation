@@ -49,22 +49,37 @@ export default function AnnotationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      const validTypes = ["image/png", "image/jpeg"];
+      const validTypes = ["image/png", "image/jpeg", "image/jpg"];
       if (!validTypes.includes(file.type)) {
         alert("Please upload PNG or JPG format only");
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImageUrl(event.target?.result as string);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to upload");
+        }
+
+        setImageUrl(data.imageUrl);
         setAnnotations([]);
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Upload error:", error);
+        alert("Failed to upload image. Please try again.");
+      }
     },
     [],
   );
