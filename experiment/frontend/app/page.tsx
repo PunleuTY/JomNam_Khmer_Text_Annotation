@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/Detection/select";
 import { useState, useCallback, useRef } from "react";
-import { Download, Trash2, Upload } from "lucide-react";
+import { Download, Trash2, Upload, Wand } from "lucide-react";
 import {
   exportToJSON,
   exportToCOCO,
@@ -46,28 +46,157 @@ export default function AnnotationPage() {
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
     null,
   );
+  const [isDetecting, setIsDetecting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      const validTypes = ["image/png", "image/jpeg"];
+      const validTypes = ["image/png", "image/jpeg", "image/jpg"];
       if (!validTypes.includes(file.type)) {
         alert("Please upload PNG or JPG format only");
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImageUrl(event.target?.result as string);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to upload");
+        }
+
+        setImageUrl(data.imageUrl);
         setAnnotations([]);
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Upload error:", error);
+        alert("Failed to upload image. Please try again.");
+      } finally {
+        // Reset file input to allow re-uploading the same file
+        e.target.value = "";
+      }
     },
     [],
   );
+
+  const handleAnnotate = useCallback(async () => {
+    if (!imageUrl) {
+      alert("Please upload an image first");
+      return;
+    }
+
+    setIsDetecting(true);
+
+    try {
+      // Get the backend URL from environment or use default
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+      const response = await fetch(`${backendUrl}/detect-only`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: imageUrl,
+          mode: annotationMode,  // Send "word" or "line" mode
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to detect text");
+      }
+
+      // Convert backend boxes to frontend annotations (detection only, no text)
+      const newAnnotations: Annotation[] = data.boxes.map((box: any, index: number) => ({
+        id: `auto-${Date.now()}-${index}`,
+        text: "",  // Empty text for detection-only mode
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        mode: annotationMode,
+      }));
+
+      console.log(`Detected ${newAnnotations.length} text regions`);
+      console.log("Image size from backend:", data.image_width, "x", data.image_height);
+      console.log("First 3 boxes:", newAnnotations.slice(0, 3).map(a => ({
+        x: a.x, y: a.y, width: a.width, height: a.height
+      })));
+
+      setAnnotations(newAnnotations);
+    } catch (error) {
+      console.error("Annotation error:", error);
+      alert("Failed to annotate. Make sure the backend server is running at http://localhost:8000");
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [imageUrl, annotationMode]);
+
+  const handleAnnotateExtract = useCallback(async () => {
+    if (!imageUrl) {
+      alert("Please upload an image first");
+      return;
+    }
+
+    setIsDetecting(true);
+
+    try {
+      // Get the backend URL from environment or use default
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+      const response = await fetch(`${backendUrl}/detect-and-extract`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: imageUrl,
+          mode: annotationMode,  // Send "word" or "line" mode
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to detect and extract text");
+      }
+
+      // Convert backend boxes to frontend annotations (with extracted text)
+      const newAnnotations: Annotation[] = data.boxes.map((box: any, index: number) => ({
+        id: `auto-${Date.now()}-${index}`,
+        text: box.text || "",  // Use extracted text from Tesseract
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        mode: annotationMode,
+      }));
+
+      console.log(`Detected and extracted ${newAnnotations.length} text regions`);
+      console.log("Image size from backend:", data.image_width, "x", data.image_height);
+      console.log("First 3 boxes:", newAnnotations.slice(0, 3).map(a => ({
+        x: a.x, y: a.y, width: a.width, height: a.height, text: a.text
+      })));
+
+      setAnnotations(newAnnotations);
+    } catch (error) {
+      console.error("Annotation & extraction error:", error);
+      alert("Failed to annotate and extract. Make sure the backend server is running at http://localhost:8000");
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [imageUrl, annotationMode]);
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -241,6 +370,24 @@ export default function AnnotationPage() {
           >
             <Trash2 className="h-4 w-4" />
             Clear Current Box
+          </Button>
+
+          <Button
+            onClick={handleAnnotate}
+            disabled={!imageUrl || isDetecting}
+            className="gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand className={`h-4 w-4 ${isDetecting ? "animate-pulse" : ""}`} />
+            {isDetecting ? "Detecting..." : "Annotate Only"}
+          </Button>
+
+          <Button
+            onClick={handleAnnotateExtract}
+            disabled={!imageUrl || isDetecting}
+            className="gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand className={`h-4 w-4 ${isDetecting ? "animate-pulse" : ""}`} />
+            {isDetecting ? "Extracting..." : "Annotate & Extract"}
           </Button>
 
           <div className="ml-auto flex gap-2">
