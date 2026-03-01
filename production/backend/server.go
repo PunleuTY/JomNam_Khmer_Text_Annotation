@@ -206,7 +206,7 @@ func setupRoutes(router *gin.Engine, firebaseApp *firebase.App, imageCollection,
 		protected.Use(middleware.FirebaseAuthMiddleware(firebaseAuth))
 		{
 			// User profile routes
-			routes.UserRoutes(protected, userCollection)
+			routes.UserRoutes(protected, userCollection, r2Client)
 
 			// Project management routes
 			routes.ProjectRoutes(protected, projectCollection, imageCollection)

@@ -42,6 +42,37 @@ export const uploadImages = async (projectId, files, annotations) => {
   }
 };
 
+// Trigger OCR for an existing image by calling the backend OCR endpoint
+export const triggerOCR = async (imageId, boxes) => {
+  if (!imageId) return null;
+
+  const token = getAuthToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    const res = await apiRequest(`/images/${imageId}/ocr`, {
+      method: "POST",
+      body: JSON.stringify({ annotations: boxes }),
+      headers,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        success: false,
+        error: `Failed to trigger OCR: ${text}`,
+        status: res.status,
+      };
+    }
+
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err) {
+    console.error("triggerOCR error:", err);
+    return { success: false, error: err?.message || String(err) };
+  }
+};
+
 // Save ground truth annotations to backend
 export const saveGroundTruth = async (
   filename,

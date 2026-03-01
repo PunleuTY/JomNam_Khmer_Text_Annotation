@@ -91,7 +91,6 @@ export default function CreateProjectForm({
                   onChange={(e) => setNewProjectDescription(e.target.value)}
                   rows={4}
                   className="resize-none text-base"
-                  required
                 />
               </div>
               <Button

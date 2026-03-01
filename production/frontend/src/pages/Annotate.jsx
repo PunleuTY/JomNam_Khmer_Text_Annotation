@@ -34,7 +34,7 @@ import { levenshteinSimilarity } from "@/lib/levenshtein";
 import { saveProject } from "@/lib/storage";
 import { ExportDialog } from "@/components/export-dialog";
 // import { CurrentProjectContext, ProjectContext } from "./Myproject";
-import { uploadImages, saveGroundTruth } from "@/server/sendImageAPI";
+import { uploadImages, saveGroundTruth, triggerOCR } from "@/server/sendImageAPI";
 import CreateProjectForm from "@/components/CreateProjectForm";
 import { ImageUploader } from "@/components/image-uploader";
 import {
@@ -257,34 +257,20 @@ const Annotate = () => {
         }
       });
 
-      // Ensure we have a File object
-      let fileToSend;
-      if (currentImage.file) {
-        fileToSend = currentImage.file;
-      } else if (currentImage.url) {
-        const resp = await fetch(currentImage.url);
-        const blob = await resp.blob();
-        fileToSend = new File([blob], currentImage.name);
-      } else {
-        console.error("No file or URL found for image", currentImage);
+      // Call the OCR endpoint on the backend
+      const ocrRes = await triggerOCR(currentId, boxes);
+
+      if (!ocrRes || !ocrRes.success) {
+        console.error("OCR failed:", ocrRes?.error);
+        setSuccessMsg("OCR failed!");
+        setTimeout(() => setSuccessMsg(""), 2000);
         return;
       }
 
-      const uploadRes = await uploadImages(
-        CurrentProjectContext,
-        [fileToSend],
-        boxes,
-      );
-
-      if (!uploadRes || !uploadRes.success) {
-        console.error("OCR upload failed:", uploadRes?.error);
-        return;
-      }
-
-      const data = uploadRes.data || {};
+      const data = ocrRes.data || {};
       console.log("OCR result:", data);
-      // Extract OCR result from backend response (first image)
-      const ocrResults = data?.images?.[0]?.processing_result || [];
+      // Extract OCR result - backend returns processing_result directly
+      const ocrResults = data?.processing_result || [];
       // Update annotations for current image
       const updatedAnns = anns.map((ann, idx) => {
         const text = ocrResults?.[idx]?.extracted_text?.trim() || "";
