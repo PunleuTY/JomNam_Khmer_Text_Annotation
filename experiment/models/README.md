@@ -1,0 +1,1 @@
+# JOMNAM_Text_detection_docTR

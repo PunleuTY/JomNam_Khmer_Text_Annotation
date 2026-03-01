@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+**/myenv
+
+# Build
+dist/
+build/
+out/
+
+# System
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Secrets
+.env
+**/.env
+*.key
+*.pem
+
+# Tests
+coverage/
+*.test-results
+
+**/jomnam-service-account.json
+backend\firebase\jomnam-service-account.json

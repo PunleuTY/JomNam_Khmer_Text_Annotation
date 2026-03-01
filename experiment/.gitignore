@@ -1,0 +1,82 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+**/venv
+**/myenv
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Python test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+.next/
+out/
+dist/
+**/node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Output / Generated Files
+# =========================
+ocr_result.json
+ocr_text.txt
+*.log
+
+# =========================
+# Model Weights / Large Files
+# =========================
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+
+# =========================
+# Misc
+# =========================
+*.sqlite3
