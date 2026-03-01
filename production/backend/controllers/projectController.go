@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"backend/cloudflare"
 	"backend/models"
 
 	"github.com/gin-gonic/gin"
@@ -294,8 +295,28 @@ func GetImagesByProject(imageCollection *mongo.Collection, projectCollection *mo
             return
         }
 
+        // Enhance images with public URLs for frontend
+        enhancedImages := make([]map[string]interface{}, 0, len(images))
+        for _, img := range images {
+            imageMap := map[string]interface{}{
+                "id":          img.ID,
+                "project_id":  img.ProjectID,
+                "name":        img.Name,
+                "path":        img.Path,
+                "url":         cloudflare.GetPublicURL(img.Path), // Add public URL
+                "width":       img.Width,
+                "height":      img.Height,
+                "status":      img.Status,
+                "annotations": img.Annotations,
+                "meta":        img.Meta,
+                "created_at":  img.CreatedAt,
+                "updated_at":  img.UpdatedAt,
+            }
+            enhancedImages = append(enhancedImages, imageMap)
+        }
+
         log.Printf("GetImagesByProject: Retrieved %d images for project %s", len(images), projectID.Hex())
-        c.JSON(http.StatusOK, images)
+        c.JSON(http.StatusOK, enhancedImages)
     }
 }
 

@@ -3,26 +3,31 @@ import { getAuthToken } from "@/lib/authUtils";
 export async function apiRequest(endpoint, options = {}) {
   // Get the Firebase token from localStorage
   const token = getAuthToken();
+  const base = import.meta.env.VITE_BACKEND_BASE_ENDPOINT || "";
+
+  // normalize URL parts to avoid double slashes
+  const baseClean = base ? base.replace(/\/\/+$/, "") : "";
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  // If no base provided, use relative path (works with Vite proxy)
+  const url = baseClean ? `${baseClean}${path}` : path;
 
   const defaultOptions = {
     headers: {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(options.headers || {}),
     },
-    credentials: "include", // Include cookies with requests
+    credentials: "include",
+    ...options,
   };
 
-  // Add Authorization header if token exists
   if (token) {
     defaultOptions.headers["Authorization"] = `Bearer ${token}`;
   }
 
-  return fetch(`${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}${endpoint}`, {
-    ...defaultOptions,
-    ...options,
-  });
+  try {
+    return await fetch(url, defaultOptions);
+  } catch (err) {
+    console.error("Network request failed:", url, err);
+    throw err;
+  }
 }
-
-// Example usage:
-// const response = await apiRequest('/api/projects');
-// const data = await response.json();

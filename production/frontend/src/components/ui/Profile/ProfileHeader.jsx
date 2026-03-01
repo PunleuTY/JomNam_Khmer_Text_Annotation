@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { CiEdit } from "react-icons/ci";
 import { IoClose } from "react-icons/io5";
 import { FiCheck } from "react-icons/fi";
+import { getAuthToken } from "@/lib/authUtils";
+import { auth } from "@/lib/auth";
 
 export default function ProfileHeader({ userData, isEditing, onUpdate }) {
   const [editedData, setEditedData] = useState(userData);
@@ -9,6 +11,7 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
   const coverImageInputRef = useRef(null);
   const [viewImage, setViewImage] = useState(null); // null, 'profile', or 'cover'
   const [isEditingBio, setIsEditingBio] = useState(false);
+  const [uploading, setUploading] = useState({ profile: false, cover: false });
 
   // Sync editedData with userData when userData changes
   useEffect(() => {
@@ -32,27 +35,94 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
     coverImageInputRef.current?.click();
   };
 
-  const handleProfileImageChange = (e) => {
+  // Get fresh token from Firebase
+  const getFreshToken = async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      // getIdToken(true) forces a refresh if the token is expired
+      const token = await currentUser.getIdToken(true);
+      return token;
+    }
+    return getAuthToken();
+  };
+
+  const handleProfileImageChange = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditedData({ ...editedData, profileImage: reader.result });
-        onUpdate({ ...editedData, profileImage: reader.result });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploading({ ...uploading, profile: true });
+
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      formData.append("type", "profile");
+
+      const token = await getFreshToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/users/upload-photo`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to upload profile photo");
+      }
+
+      const data = await res.json();
+      const publicURL = data.url;
+
+      // Update local state with the uploaded image URL
+      setEditedData({ ...editedData, profileImage: publicURL });
+      onUpdate({ profileImage: publicURL });
+    } catch (error) {
+      console.error("Error uploading profile photo:", error);
+      alert("Failed to upload profile photo: " + error.message);
+    } finally {
+      setUploading({ ...uploading, profile: false });
+      e.target.value = ""; // Reset input
     }
   };
 
-  const handleCoverImageChange = (e) => {
+  const handleCoverImageChange = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditedData({ ...editedData, coverImage: reader.result });
-        onUpdate({ ...editedData, coverImage: reader.result });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploading({ ...uploading, cover: true });
+
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      formData.append("type", "cover");
+
+      const token = await getFreshToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_ENDPOINT}/users/upload-photo`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to upload cover photo");
+      }
+
+      const data = await res.json();
+      const publicURL = data.url;
+
+      // Update local state with the uploaded image URL
+      setEditedData({ ...editedData, coverImage: publicURL });
+      onUpdate({ coverImage: publicURL });
+    } catch (error) {
+      console.error("Error uploading cover photo:", error);
+      alert("Failed to upload cover photo: " + error.message);
+    } finally {
+      setUploading({ ...uploading, cover: false });
+      e.target.value = ""; // Reset input
     }
   };
 
@@ -105,13 +175,14 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
               onClick={() => handleImageClick("cover")}
             />
           ) : (
-            <span className="text-white text-xl font-medium">Cover Image</span>
+            <span className="text-gray-400 text-xl font-medium">Cover Image</span>
           )}
           <input
             ref={coverImageInputRef}
             type="file"
             accept="image/*"
             onChange={handleCoverImageChange}
+            disabled={uploading.cover}
             className="hidden"
           />
           <button
@@ -119,10 +190,15 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
               e.stopPropagation();
               handleCoverImageClick();
             }}
-            className="absolute top-4 right-4 w-10 h-10 bg-white/90 hover:bg-white rounded-full border border-gray-300 flex items-center justify-center transition-all shadow-lg z-10"
+            disabled={uploading.cover}
+            className="absolute top-4 right-4 w-10 h-10 bg-white/90 hover:bg-white rounded-full border border-gray-300 flex items-center justify-center transition-all shadow-lg z-10 disabled:opacity-50"
             title="Change cover image"
           >
-            <CiEdit className="w-5 h-5 text-gray-700" />
+            {uploading.cover ? (
+              <div className="w-5 h-5 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
+            ) : (
+              <CiEdit className="w-5 h-5 text-gray-700" />
+            )}
           </button>
         </div>
 
@@ -149,6 +225,7 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
                 type="file"
                 accept="image/*"
                 onChange={handleProfileImageChange}
+                disabled={uploading.profile}
                 className="hidden"
               />
               <button
@@ -156,10 +233,15 @@ export default function ProfileHeader({ userData, isEditing, onUpdate }) {
                   e.stopPropagation();
                   handleProfileImageClick();
                 }}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-md z-10"
+                disabled={uploading.profile}
+                className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-md z-10 disabled:opacity-50"
                 title="Change profile image"
               >
-                <CiEdit className="w-4 h-4 text-gray-600" />
+                {uploading.profile ? (
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
+                ) : (
+                  <CiEdit className="w-4 h-4 text-gray-600" />
+                )}
               </button>
             </div>
 

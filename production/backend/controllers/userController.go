@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
+	"backend/cloudflare"
 	"backend/middleware"
 	"backend/models"
 
@@ -17,12 +20,14 @@ import (
 // UserController handles user-related operations
 type UserController struct {
 	userCollection *mongo.Collection
+	r2Client       *cloudflare.R2Client
 }
 
 // NewUserController creates a new instance of UserController
-func NewUserController(userCollection *mongo.Collection) *UserController {
+func NewUserController(userCollection *mongo.Collection, r2Client *cloudflare.R2Client) *UserController {
 	return &UserController{
 		userCollection: userCollection,
+		r2Client:       r2Client,
 	}
 }
 
@@ -160,4 +165,129 @@ func (uc *UserController) UpdateCurrentUserProfile(c *gin.Context) {
 		"message": "Profile updated successfully",
 		"user":    updatedUser,
 	})
+}
+
+// UploadProfilePhoto handles profile photo or cover photo upload
+// Uploads to Cloudflare R2 under user_photos/{email}/{type}/{filename}
+// Updates the user's profile_photo or cover_photo field in MongoDB
+// Request: POST /users/upload-photo with multipart form:
+//   - photo: image file
+//   - type: "profile" or "cover"
+// Response:
+//   - Success: { "message": "Photo uploaded successfully", "url": "...", "user": {...} }
+//   - Error: { "error": "<error message>" }
+func (uc *UserController) UploadProfilePhoto(c *gin.Context) {
+	// Get user email from context
+	email, err := middleware.GetUserEmail(c)
+	if err != nil {
+		log.Printf("UploadProfilePhoto: User not authenticated")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	// Parse multipart form
+	file, err := c.FormFile("photo")
+	if err != nil {
+		log.Printf("UploadProfilePhoto: Missing photo file - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing photo file"})
+		return
+	}
+
+	// Get photo type (profile or cover)
+	photoType := c.PostForm("type")
+	if photoType != "profile" && photoType != "cover" {
+		log.Printf("UploadProfilePhoto: Invalid photo type - %s", photoType)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Photo type must be 'profile' or 'cover'"})
+		return
+	}
+
+	// Validate file type
+	if !isValidImageType(file.Filename) {
+		log.Printf("UploadProfilePhoto: Invalid file type - %s", file.Filename)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only image files are allowed (jpg, jpeg, png, webp)"})
+		return
+	}
+
+	// Generate object key: user_photos/email/type/filename
+	// Sanitize email for use in path (replace @ with _at_)
+	sanitizedEmail := sanitizeEmailForPath(email)
+	objectKey := fmt.Sprintf("user_photos/%s/%s/%s", sanitizedEmail, photoType, file.Filename)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Upload to R2
+	uploadedKey, err := uc.r2Client.UploadFile(ctx, file, objectKey)
+	if err != nil {
+		log.Printf("UploadProfilePhoto: Failed to upload to R2 - %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+		return
+	}
+
+	// Get public URL
+	publicURL := cloudflare.GetPublicURL(uploadedKey)
+	if publicURL == "" {
+		log.Printf("UploadProfilePhoto: Failed to get public URL")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get photo URL"})
+		return
+	}
+
+	// Update user document in MongoDB
+	updateField := "profile_photo"
+	if photoType == "cover" {
+		updateField = "cover_photo"
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			updateField:  publicURL,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := uc.userCollection.UpdateOne(ctx, bson.M{"email": email}, update)
+	if err != nil {
+		log.Printf("UploadProfilePhoto: Failed to update user in database - %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		log.Printf("UploadProfilePhoto: User not found for email %s", email)
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Retrieve updated user
+	var updatedUser models.User
+	err = uc.userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&updatedUser)
+	if err != nil {
+		log.Printf("UploadProfilePhoto: Failed to retrieve updated user - %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Photo uploaded but failed to retrieve user"})
+		return
+	}
+
+	log.Printf("UploadProfilePhoto: %s photo uploaded for %s - URL: %s", photoType, email, publicURL)
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("%s photo uploaded successfully", photoType),
+		"url":     publicURL,
+		"user":    updatedUser,
+	})
+}
+
+// isValidImageType checks if the filename has a valid image extension
+func isValidImageType(filename string) bool {
+	validExtensions := []string{".jpg", ".jpeg", ".png", ".webp"}
+	filename = strings.ToLower(filename)
+	for _, ext := range validExtensions {
+		if strings.HasSuffix(filename, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+// sanitizeEmailForPath replaces @ with _at_ for safe use in file paths
+func sanitizeEmailForPath(email string) string {
+	return strings.ReplaceAll(email, "@", "_at_")
 }

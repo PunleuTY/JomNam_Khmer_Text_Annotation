@@ -21,8 +21,12 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
       const projectName = formData.title || "New Project";
       const description = formData.description || "";
       console.log("createModal: calling createProjectAPI with", projectName);
-      const project = await createProjectAPI(projectName, description);
-      console.log("createModal: createProjectAPI returned", project.project.id);
+      const res = await createProjectAPI(projectName, description);
+      if (!res || !res.success) {
+        throw new Error(res?.error || "Failed to create project");
+      }
+      const project = res.data;
+      console.log("createModal: createProjectAPI returned", project?.id);
 
       // notify parent if callback exists
       onCreated?.(project);
@@ -31,15 +35,20 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
       setFormData({ title: "", description: "" });
       onClose();
 
-      // redirect to project page
-      navigate("/Annotate/" + project.project.id);
+      // save selected and redirect to project page
+      try {
+        localStorage.setItem("selectedProjectId", project.id);
+      } catch (e) {
+        /* ignore */
+      }
+      navigate("/Annotate/" + project.id);
     } catch (error) {
       console.error("createModal: createProject failed", error);
       // Show a simple error toast with the error message for debugging
       toast.error(
         `Failed to create project. Please try again.\n${
           error?.message || error
-        }`
+        }`,
       );
     } finally {
       setLoading(false);
