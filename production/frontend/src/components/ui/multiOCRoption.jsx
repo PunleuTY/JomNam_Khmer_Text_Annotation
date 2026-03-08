@@ -155,7 +155,6 @@ export default function MultiOCRoption({ open, onOpenChange }) {
                     options={[
                       { value: "auto",   label: "Auto Detect" },
                       { value: "manual", label: "Manual" },
-                      { value: "hybrid", label: "Hybrid" },
                     ]}
                     selected={annotationMode}
                     onChange={setAnnotationMode}
