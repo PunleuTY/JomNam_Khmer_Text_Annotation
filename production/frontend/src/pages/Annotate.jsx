@@ -44,6 +44,7 @@ import {
 import { useShortcuts } from "../lib/userShortcuts.js";
 import { GalleryView } from "@/components/GalleryView";
 import ReusableTable from "../components/ui/myproject.jsx";
+import MultiOCRoption from "@/components/ui/MultiOCRoption";
 
 // --- CONSTANTS ---
 const HISTORY_LIMIT = 100;
@@ -67,6 +68,7 @@ const Annotate = () => {
   const [annotations, setAnnotations] = useState({});
   const [activeTab, setActiveTab] = useState("annotation");
   const [lang] = useState("khm");
+  const [exportOpen, setExportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -878,6 +880,13 @@ const Annotate = () => {
                     >
                       <Download className="w-4 h-4 mr-2" /> Export
                     </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setOcrSettingsOpen(true)}
+                      className="bg-[#12284c] text-white"
+                    >
+                      <Settings className="w-4 h-4 mr-2" /> OCR Settings
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -962,6 +971,10 @@ const Annotate = () => {
             images={images}
             annotations={annotations}
             projectMeta={{ name: "Khmer Text Annotation Tool", lang }}
+          />
+          <MultiOCRoption
+            open={ocrSettingsOpen}
+            onOpenChange={setOcrSettingsOpen}
           />
           <GalleryView
             open={galleryOpen}
