@@ -106,7 +106,7 @@ export function AnnotationCanvas({
       ctx.fillRect(x, y, w, h);
 
       // Draw label above the box
-      const label = `#${index + 1}`;
+      const label = annotation.text || `#${index + 1}`;
       ctx.font = "16px Arial";
 
       // Measure text width for background
@@ -137,7 +137,7 @@ export function AnnotationCanvas({
 
       // Label at first point of polygon
       const first = toCanvasPoint(annotation.points[0], scale);
-      const label = `#${index + 1}`;
+      const label = annotation.text || `#${index + 1}`;
       ctx.font = "16px Arial";
 
       const textWidth = ctx.measureText(label).width;
