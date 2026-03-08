@@ -19,7 +19,7 @@ export default function CreateProjectForm({
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreateProject = () => {
-    if (!newProjectName.trim() || !newProjectDescription.trim()) {
+    if (!newProjectName.trim()) {
       toast.warn(t("workspace.createProject.requiredFields"));
       return;
     }
@@ -82,7 +82,7 @@ export default function CreateProjectForm({
                   htmlFor="project-description"
                   className="text-sm font-medium"
                 >
-                  Description <span className="text-red-500">*</span>
+                  Description
                 </Label>
                 <Textarea
                   id="project-description"
@@ -91,17 +91,12 @@ export default function CreateProjectForm({
                   onChange={(e) => setNewProjectDescription(e.target.value)}
                   rows={4}
                   className="resize-none text-base"
-                  required
                 />
               </div>
               <Button
                 onClick={handleCreateProject}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium h-12"
-                disabled={
-                  !newProjectName.trim() ||
-                  !newProjectDescription.trim() ||
-                  isCreating
-                }
+                disabled={!newProjectName.trim() || isCreating}
               >
                 {isCreating ? "Creating..." : "Create Project"}
               </Button>

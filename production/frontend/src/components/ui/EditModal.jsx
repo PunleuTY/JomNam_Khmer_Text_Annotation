@@ -44,8 +44,14 @@ export const EditModal = ({ isOpen, onClose, onEdited, item }) => {
     setLoading(true);
     try {
       console.log("editModal: calling editProjectAPI with", item.id, formData);
-      const updatedProject = await editProjectAPI(item.id, formData);
-      console.log("editModal: editProjectAPI returned", updatedProject);
+      const res = await editProjectAPI(item.id, formData);
+      console.log("editModal: editProjectAPI returned", res);
+
+      if (!res || !res.success) {
+        throw new Error(res?.error || "Failed to update project");
+      }
+
+      const updatedProject = res.data;
 
       // notify parent if callback exists (this will trigger data refresh)
       if (onEdited) {
@@ -63,7 +69,7 @@ export const EditModal = ({ isOpen, onClose, onEdited, item }) => {
       toast.error(
         `Failed to update project. Please try again.\n${
           error?.message || error
-        }`
+        }`,
       );
     } finally {
       setLoading(false);

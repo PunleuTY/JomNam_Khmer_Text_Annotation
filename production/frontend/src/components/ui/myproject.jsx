@@ -181,7 +181,7 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
         hideProgressBar: true,
         closeOnClick: false,
         draggable: false,
-      }
+      },
     );
   };
 
@@ -195,12 +195,20 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
       console.log("Delete response:", response);
 
       // Check if deletion was successful
-      if (response.success || response.message) {
+      if (response && response.success) {
         console.log("Item deleted successfully");
         toast.success("Item deleted successfully!");
         // Automatically refresh the project list after successful deletion
         if (onProjectCreated) {
           await onProjectCreated();
+        }
+        try {
+          const stored = localStorage.getItem("selectedProjectId");
+          if (stored && stored === String(item.id)) {
+            localStorage.removeItem("selectedProjectId");
+          }
+        } catch (e) {
+          console.warn("Failed to clear selected project from storage", e);
         }
       } else {
         console.error("Failed to delete item");
@@ -264,7 +272,14 @@ const ReusableTable = ({ data = [], onProjectCreated, page }) => {
                   {/* Title Column */}
                   <td
                     className="px-6 py-4 w-10"
-                    onClick={() => navigate(`/Annotate/${item.id}`)} // ✅ correct
+                    onClick={() => {
+                      try {
+                        localStorage.setItem("selectedProjectId", item.id);
+                      } catch (e) {
+                        /* ignore */
+                      }
+                      navigate(`/Annotate/${item.id}`);
+                    }}
                     style={{ cursor: "pointer" }}
                   >
                     <div className="text-sm font-medium text-gray-900 truncate">
