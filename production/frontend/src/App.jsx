@@ -19,6 +19,7 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="Annotate" element={<Annotate />} />
+          <Route path="multi" element={<Annotate />} />
           <Route path="Annotate/:id" element={<Annotate />} />
           <Route path="feature" element={<Feature />} />
           <Route path="about" element={<About />} />
