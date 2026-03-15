@@ -34,12 +34,26 @@ Khmer-Data-Annotation-Project/
 
 ## 🛠️ Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| Frontend | React.js, Vite, Tailwind CSS |
-| Backend | Go, Gin Framework |
-| Database | MongoDB |
-| ML/OCR | Python, FastAPI, Tesseract, YOLO |
+| Component | Technology                       |
+| --------- | -------------------------------- |
+| Frontend  | React.js, Vite, Tailwind CSS     |
+| Backend   | Go, Gin Framework                |
+| Database  | MongoDB                          |
+| ML/OCR    | Python, FastAPI, Tesseract, YOLO |
+
+---
+
+## 📖 Usage Demo
+
+![GIF_demo](https://github.com/user-attachments/assets/f65da9dc-bc25-4c89-b215-3718e6a779be)
+
+**Quick Workflow:**
+
+1. Upload an image with Khmer text
+2. Draw bounding boxes around text regions
+3. Click "Extract Text" to run OCR
+4. Review and edit extracted text
+5. Save annotations to your project
 
 ---
 
@@ -54,6 +68,7 @@ Contributions are welcome! Here's how you can help:
 5. **Open** a Pull Request
 
 ### Guidelines
+
 - Keep commits clean and focused
 - Write clear commit messages
 - Test your changes before submitting
@@ -63,7 +78,3 @@ Contributions are welcome! Here's how you can help:
 ## 📄 License
 
 This project is licensed under the MIT License.
-
-
-
-
