@@ -1,297 +1,547 @@
 # 🚀 Quick Start Guide - Khmer Data Annotation Project
 
-## ⚠️ IMPORTANT: Read This First!
+Complete guide to setting up and running the production environment.
 
-Your project has **4 components** that must all be running for text annotation to work:
+---
 
-1. ✅ **MongoDB Database** (port 27017)
-2. ✅ **Backend Server (Go)** (port 3000)
-3. ✅ **ML OCR Server (Python)** (port 8000)
-4. ✅ **Frontend (React)** (port 5173)
+## 📋 Overview
 
-## 🔧 Prerequisites Installation
+This project consists of **4 components** that work together:
 
-### 1. Install MongoDB
+| Component | Port | Technology | Purpose |
+|-----------|------|------------|---------|
+| **MongoDB** | 27017 | Database | Data storage |
+| **Backend** | 3000 | Go + Gin | API server |
+| **ML Server** | 8000 | Python + FastAPI | OCR text extraction |
+| **Frontend** | 5173 | React + Vite | Web interface |
 
-**Download & Install:**
+---
 
-- Go to: https://www.mongodb.com/try/download/community
-- Download MongoDB Community Server for Windows
-- Install with default settings
-- **IMPORTANT**: During installation, check "Install MongoDB as a Service"
+## 🔧 Prerequisites
 
-**Add to PATH:**
+Install these before proceeding:
 
-1. Open System Environment Variables
-2. Add to PATH: `C:\Program Files\MongoDB\Server\7.0\bin\` (adjust version number)
-3. Restart your terminal
+### Required Software
 
-**Start MongoDB:**
+| Software | Version | Download |
+|----------|---------|----------|
+| **Node.js** | v18+ | https://nodejs.org/ |
+| **Go** | v1.19+ | https://go.dev/dl/ |
+| **Python** | v3.10+ | https://python.org/ |
+| **MongoDB** | v6+ | https://mongodb.com/try/download/community |
+| **Tesseract OCR** | v5+ | https://github.com/UB-Mannheim/tesseract/wiki |
 
-```powershell
-# Start MongoDB service
-net start MongoDB
-```
+---
 
-### 2. Install Tesseract OCR
+## 📥 Tesseract OCR Installation (Detailed Guide)
 
-**Download & Install:**
+Tesseract is the OCR engine used to extract Khmer text from images. Follow these steps carefully.
 
-- Go to: https://github.com/UB-Mannheim/tesseract/wiki
-- Download the latest installer
-- Install to: `C:\Program Files\Tesseract-OCR\`
-- **CRITICAL**: During installation, select "Additional Language Data" and check **Khmer (khm)**
+### Step 1: Download Tesseract Installer
 
-**Verify Installation:**
+1. Go to: **https://github.com/UB-Mannheim/tesseract/wiki**
+2. Download the latest Windows installer (e.g., `tesseract-ocr-w64-setup-5.x.x.exe`)
 
-```powershell
+### Step 2: Run the Installer
+
+1. **Run** the downloaded `.exe` file as Administrator
+2. Click **Next** through the setup wizard
+3. **IMPORTANT - Installation Location:**
+   - Install to: `C:\Program Files\Tesseract-OCR\`
+   - Do NOT change this default path (it's used in the ML config)
+
+### Step 3: Select Language Data (CRITICAL)
+
+During installation, you'll see a **"Select Additional Language Data"** screen:
+
+1. **Scroll down** and find:
+   - ☑ **Khmer (khm)** - Required for Khmer text
+   - ☑ **English (eng)** - Recommended for mixed text
+2. **Check both boxes**
+3. Click **Next** and complete installation
+
+![Language Selection](https://i.imgur.com/example.png) *(Select Khmer and English)*
+
+### Step 4: Add Tesseract to System PATH
+
+1. Press `Win + R`, type `sysdm.cpl`, press **Enter**
+2. Click **Advanced** tab → **Environment Variables**
+3. Under **System variables**, find `Path` → Click **Edit**
+4. Click **New** → Add: `C:\Program Files\Tesseract-OCR\`
+5. Click **OK** on all windows
+
+### Step 5: Verify Installation
+
+Open a **NEW** terminal (to load PATH changes) and run:
+
+```bash
 tesseract --version
 ```
 
-### 3. Verify Go Installation
-
-```powershell
-go version
+**Expected Output:**
+```
+tesseract 5.x.x
+ leptonica-1.x.x
+  khm eng
 ```
 
-### 4. Verify Python Installation
+✅ If you see `khm` in the language list, you're ready!
 
-```powershell
-python --version
+### Step 6: Download Additional Khmer Training Data (Optional)
+
+For improved Khmer OCR accuracy, download trained data:
+
+1. Go to: **https://github.com/tesseract-ocr/tessdata_fast**
+2. Download `khm.traineddata`
+3. Copy to: `C:\Program Files\Tesseract-OCR\tessdata\`
+
+### Troubleshooting Tesseract
+
+| Issue | Solution |
+|-------|----------|
+| `'tesseract' is not recognized` | Restart terminal, verify PATH |
+| `khm language not found` | Reinstall and select Khmer language |
+| `Access denied` | Run installer as Administrator |
+
+---
+
+## 🔧 Other Prerequisites
+
+### Verify All Installations
+
+```bash
+node --version      # Should show v18.x.x
+go version          # Should show go1.19.x
+python --version    # Should show Python 3.10.x
+tesseract --version # Should show tesseract 5.x.x with khm
 ```
 
-## 📦 Project Setup (One-Time)
+---
 
-### Step 1: Install Python Dependencies
+## 📦 Project Structure
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\ML"
-pip install -r requirements.txt
+```
+production/
+├── backend/
+│   ├── cloudflare/      # Cloudflare R2 storage integration
+│   ├── controllers/     # Request handlers
+│   ├── firebase/        # Firebase authentication
+│   ├── middleware/      # Auth & request middleware
+│   ├── models/          # Database schemas
+│   ├── routes/          # API route definitions
+│   ├── uploads/         # Uploaded images (temp/final)
+│   ├── .env.example     # Backend environment template
+│   └── server.go        # Main entry point
+│
+├── frontend/
+│   ├── public/          # Static assets
+│   ├── src/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── pages/       # Application pages
+│   │   ├── contexts/    # React contexts
+│   │   ├── hooks/       # Custom hooks
+│   │   ├── lib/         # Utilities
+│   │   ├── navigations/ # Navigation components
+│   │   └── server/      # API client functions
+│   ├── .env.example     # Frontend environment template
+│   └── package.json     # Dependencies
+│
+└── ML/
+    ├── ML_V3_Final/     # Production ML model
+    │   ├── utils/       # OCR utilities
+    │   ├── main_server.py
+    │   └── ...
+    ├── requirements.txt # Python dependencies
+    └── .env.example     # ML environment template
+```
+
+---
+
+## 🔐 Environment Configuration
+
+### 1. Backend Environment (`backend/.env`)
+
+Copy `.env.example` to `.env`:
+
+```bash
+cd backend
+copy .env.example .env
+```
+
+**Example `.env`:**
+```env
+# Server
+PORT=3000
+GIN_MODE=debug
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017
+DB_NAME=annotation_db
+
+# Firebase (for authentication)
+FIREBASE_CREDENTIALS=firebase/jomnam-service-account.json
+
+# Cloudflare R2 (for image storage)
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+CLOUDFLARE_ACCESS_KEY=your_access_key
+CLOUDFLARE_SECRET_KEY=your_secret_key
+R2_BUCKET_NAME=your_bucket_name
+
+# CORS
+FRONTEND_URL=http://localhost:5173
+```
+
+---
+
+### 2. Frontend Environment (`frontend/.env`)
+
+Copy `.env.example` to `.env`:
+
+```bash
+cd frontend
+copy .env.example .env
+```
+
+**Example `.env`:**
+```env
+# API Endpoints
+VITE_BACKEND_URL=http://localhost:3000
+VITE_ML_SERVER_URL=http://localhost:8000
+
+# Firebase (if using client-side auth)
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+
+# App Configuration
+VITE_APP_NAME=Khmer Annotation Tool
+```
+
+---
+
+### 3. ML Environment (`ML/.env` or `ML/ML_V3_Final/.env`)
+
+```bash
+cd ML
+copy .env.example .env
+```
+
+**Example `.env`:**
+```env
+# Server
+HOST=127.0.0.1
+PORT=8000
+
+# Tesseract Configuration
+TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
+TESSERACT_LANG=khm+eng
+
+# Backend API (for callbacks)
+BACKEND_URL=http://localhost:3000
+
+# Model Settings
+YOLO_MODEL_PATH=yolov8n.pt
+CONFIDENCE_THRESHOLD=0.5
+```
+
+---
+
+## 📥 Installation
+
+### Step 1: Install Backend Dependencies
+
+```bash
+cd production/backend
+go mod download
 ```
 
 ### Step 2: Install Frontend Dependencies
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\frontend"
+```bash
+cd production/frontend
 npm install
 ```
 
-### Step 3: Install Go Dependencies
+### Step 3: Install ML Dependencies
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\backend"
-go mod download
+```bash
+cd production/ML
+pip install -r requirements.txt
 ```
 
-## 🏃 Running the Project
+---
 
-### Option 1: Start All Services Manually
+## ▶️ Running the Project
 
-**Terminal 1 - Start MongoDB (if not running as service):**
+### Start Order: MongoDB → Backend → ML → Frontend
 
-```powershell
+---
+
+### Terminal 1: MongoDB
+
+```bash
+# If installed as Windows service:
+net start MongoDB
+
+# Or run manually:
 mongod --dbpath "C:\data\db"
 ```
 
-**Terminal 2 - Start Backend Server:**
+**Expected Output:**
+```
+MongoDB starting...
+listening on 127.0.0.1:27017
+```
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\backend"
+---
+
+### Terminal 2: Backend Server (Go)
+
+```bash
+cd production/backend
 go run server.go
 ```
 
-**Terminal 3 - Start ML OCR Server:**
+**Expected Output:**
+```
+✅ MongoDB connected successfully
+[GIN-debug] Listening and serving HTTP on :3000
+```
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\ML\ML_V3_Final"
+**What's Running:**
+- REST API on port 3000
+- Firebase authentication
+- Cloudflare R2 storage (if configured)
+- MongoDB connection
+
+---
+
+### Terminal 3: ML OCR Server (Python)
+
+```bash
+cd production/ML/ML_V3_Final
 python main_server.py
 ```
 
-**Terminal 4 - Start Frontend:**
+**Expected Output:**
+```
+Uvicorn running on http://127.0.0.1:8000
+✅ Tesseract initialized
+✅ YOLO model loaded
+```
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\frontend"
+**What's Running:**
+- FastAPI server on port 8000
+- OCR API at `POST /images/`
+- API docs at `http://localhost:8000/docs`
+
+---
+
+### Terminal 4: Frontend (React)
+
+```bash
+cd production/frontend
 npm run dev
 ```
 
-### Option 2: Use Batch Scripts (Easiest!)
+**Expected Output:**
+```
+VITE v5.x.x ready in xxx ms
+➜  Local:   http://localhost:5173/
+```
 
-1. **Start ML Server**: Double-click `ML\ML_V3_Final\start_ml_server.bat`
-2. **Start Backend**: Open terminal in `backend` folder and run `go run server.go`
-3. **Start Frontend**: Open terminal in `frontend` folder and run `npm run dev`
+**What's Running:**
+- Development server with hot reload
+- React application
+
+---
 
 ## ✅ Verify Everything is Running
 
-Check these URLs in your browser:
+Open your browser and check:
 
-1. **Frontend**: http://localhost:5173 ✅
-2. **Backend**: http://localhost:3000 (should return 404, that's OK) ✅
-3. **ML Server**: http://localhost:8000/docs (should show FastAPI docs) ✅
-4. **MongoDB**: Run `mongo` in terminal (should connect) ✅
-
-## 🎯 Testing Text Annotation
-
-1. Open http://localhost:5173
-2. Create a new project
-3. Upload an image with Khmer text
-4. Draw bounding boxes around text
-5. Click "Extract Text" or "Run OCR"
-6. **Text should now appear!** 🎉
-
-## 🐛 Troubleshooting
-
-### Problem: "No text extracted" / Empty results
-
-**Root Cause:** ML server (port 8000) is not running
-
-**Solution:**
-
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\ML\ML_V3_Final"
-python main_server.py
-```
-
-Verify at: http://localhost:8000/docs
+| Service | URL | Expected Result |
+|---------|-----|-----------------|
+| Frontend | http://localhost:5173 | Web app loads |
+| Backend API | http://localhost:3000 | 404 (normal - no route at /) |
+| ML API Docs | http://localhost:8000/docs | FastAPI Swagger UI |
+| MongoDB | `mongo` in terminal | Connection successful |
 
 ---
 
-### Problem: "Cannot connect to backend"
+## 🔄 Workflow
 
-**Root Cause:** Backend server (port 3000) is not running
+Here's how the components interact:
 
-**Solution:**
+```
+┌─────────────┐
+│   Frontend  │  (React - Port 5173)
+│   User UI   │
+└──────┬──────┘
+       │ HTTP Requests
+       ▼
+┌─────────────┐
+│   Backend   │  (Go - Port 3000)
+│   API + DB  │──────► MongoDB (Port 27017)
+└──────┬──────┘       (Store/Retrieve data)
+       │
+       │ OCR Requests
+       ▼
+┌─────────────┐
+│  ML Server  │  (Python - Port 8000)
+│  OCR + YOLO │──────► Tesseract (Khmer text)
+└─────────────┘       (Extract text from images)
+```
 
-```powershell
-cd "d:\year 3\Capstone\Jomnam text Annotation\Khmer-Data-Annotation-Project\backend"
+### Typical User Flow:
+
+1. **User** opens frontend → Creates a project
+2. **User** uploads an image → Backend stores it
+3. **User** draws bounding boxes → Frontend sends coordinates
+4. **Frontend** calls ML server → OCR extracts Khmer text
+5. **ML Server** returns extracted text → Displayed in UI
+6. **User** saves annotations → Backend stores in MongoDB
+
+---
+
+## 🐛 Troubleshooting
+
+### "No text extracted" / Empty OCR results
+
+**Cause:** ML server not running
+
+```bash
+cd production/ML/ML_V3_Final
+python main_server.py
+```
+
+Verify: http://localhost:8000/docs
+
+---
+
+### "Cannot connect to backend"
+
+**Cause:** Backend server not running
+
+```bash
+cd production/backend
 go run server.go
 ```
 
 ---
 
-### Problem: "MongoDB connection failed"
+### "MongoDB connection failed"
 
-**Root Cause:** MongoDB is not running
+**Cause:** MongoDB not running
 
-**Solution 1 (Windows Service):**
-
-```powershell
+```bash
+# Windows service
 net start MongoDB
-```
 
-**Solution 2 (Manual Start):**
-
-```powershell
-# First create data directory if it doesn't exist
-mkdir C:\data\db
-
-# Start MongoDB
+# Or manual
 mongod --dbpath "C:\data\db"
 ```
 
 ---
 
-### Problem: "TesseractNotFoundError"
+### "TesseractNotFoundError"
 
-**Root Cause:** Tesseract OCR is not installed or not in PATH
+**Cause:** Tesseract not installed or not in PATH
 
 **Solution:**
-
-1. Install Tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
-2. Make sure Khmer language pack is selected during installation
-3. Verify installation: `tesseract --version`
+1. Install from https://github.com/UB-Mannheim/tesseract/wiki
+2. Add to PATH: `C:\Program Files\Tesseract-OCR\`
+3. Verify: `tesseract --version`
 
 ---
 
-### Problem: Port already in use
+### "Port already in use"
 
-**Solution:** Stop the process using that port or change the port number
+Find and kill the process:
 
-Find process using port:
-
-```powershell
+```bash
+# Find process
 netstat -ano | findstr :8000
-```
 
-Kill process:
-
-```powershell
-taskkill /PID <process_id> /F
+# Kill process (replace PID)
+taskkill /PID <PID> /F
 ```
 
 ---
 
-## 📊 Service Status Checklist
+### Firebase Authentication Errors
 
-Before starting annotation, verify:
+**Cause:** Missing service account file
 
-- [ ] MongoDB is running (port 27017)
-- [ ] Backend server shows: "✅ MongoDB connected successfully"
-- [ ] ML server shows: "Uvicorn running on http://127.0.0.1:8000"
-- [ ] Frontend shows: "Local: http://localhost:5173"
+**Solution:**
+1. Place `jomnam-service-account.json` in `backend/firebase/`
+2. This file is gitignored - get it from your team
 
-## 🔗 Service URLs
+---
 
-| Service     | URL                        | Purpose               |
-| ----------- | -------------------------- | --------------------- |
-| Frontend    | http://localhost:5173      | User interface        |
-| Backend     | http://localhost:3000      | API & Database        |
-| ML Server   | http://localhost:8000      | Text extraction (OCR) |
-| ML API Docs | http://localhost:8000/docs | API documentation     |
-| MongoDB     | mongodb://localhost:27017  | Database              |
+### Cloudflare R2 Upload Errors
 
-## 📁 Important Files
+**Cause:** Missing R2 credentials
 
-- `ML/ML_V3_Final/utils/ocr_utils.py` - Tesseract configuration
-- `backend/server.go` - Backend server configuration
-- `frontend/src/server/sendImageAPI.js` - API endpoints
-- `ML/ML_V3_Final/main_server.py` - ML server configuration
+**Solution:**
+1. Get credentials from Cloudflare dashboard
+2. Add to `backend/.env`:
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CLOUDFLARE_ACCESS_KEY`
+   - `CLOUDFLARE_SECRET_KEY`
+   - `R2_BUCKET_NAME`
 
-## 💡 Tips
-
-1. **Always start services in this order:**
-
-   - MongoDB → Backend → ML Server → Frontend
-
-2. **Keep all 4 terminal windows open** to see logs and errors
-
-3. **If text extraction doesn't work**, check ML server terminal for errors
-
-4. **Use high-quality images** with clear text for best OCR results
-
-5. **Draw tight bounding boxes** around text for better extraction accuracy
-
-## 🆘 Still Having Issues?
-
-1. Check all 4 services are running (see checklist above)
-2. Look at terminal logs for error messages
-3. Verify Tesseract installed with Khmer language pack
-4. Restart all services in the correct order
-5. Clear browser cache and reload frontend
+---
 
 ## 📝 Quick Commands Reference
 
-```powershell
-# Start MongoDB (if not service)
+```bash
+# MongoDB
 net start MongoDB
 
 # Backend
-cd backend
+cd production/backend
 go run server.go
 
 # ML Server
-cd ML\ML_V3_Final
+cd production/ML/ML_V3_Final
 python main_server.py
 
 # Frontend
-cd frontend
+cd production/frontend
 npm run dev
 
-# Check what's running on ports
+# Check ports
 netstat -ano | findstr :3000
 netstat -ano | findstr :8000
 netstat -ano | findstr :5173
+
+# Kill process by port
+taskkill /PID <PID> /F
 ```
 
 ---
 
-**Need help?** Check the logs in each terminal window for detailed error messages.
+## 📊 Service Checklist
+
+Before testing annotation:
+
+- [ ] MongoDB running on port 27017
+- [ ] Backend shows "MongoDB connected" on port 3000
+- [ ] ML shows "Uvicorn running" on port 8000
+- [ ] Frontend shows "Local: http://localhost:5173"
+- [ ] All 4 terminals are open and visible
+
+---
+
+## 💡 Tips
+
+1. **Start services in order:** MongoDB → Backend → ML → Frontend
+2. **Keep terminals open** to see logs and debug errors
+3. **Check ML logs first** if OCR fails
+4. **Use high-quality images** for better OCR accuracy
+5. **Draw tight bounding boxes** around text
+
+---
+
+**Need help?** Check the terminal logs for detailed error messages.
