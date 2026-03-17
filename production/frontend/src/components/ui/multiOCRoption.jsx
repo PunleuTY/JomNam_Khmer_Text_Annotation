@@ -92,14 +92,30 @@ const SubSetting = ({ label, description, children }) => (
   </div>
 );
 
-export default function MultiOCRoption({ open, onOpenChange }) {
-  const [detectionEnabled, setDetectionEnabled]     = useState(true);
-  const [recognitionEnabled, setRecognitionEnabled] = useState(true);
-  const [annotationMode, setAnnotationMode]         = useState("auto");
-  const [annotationOption, setAnnotationOption]     = useState("annotate_extract");
-  const [ocrOption, setOcrOption]                   = useState("kiriocr");
-  const [font, setFont]                             = useState("khmer");
-  const [imageType, setImageType]                   = useState("scantext");
+export default function MultiOCRoption({ open, onOpenChange, onApply, settings }) {
+  const [detectionEnabled, setDetectionEnabled]     = useState(settings?.detectionEnabled ?? true);
+  const [recognitionEnabled, setRecognitionEnabled] = useState(settings?.recognitionEnabled ?? true);
+  const [annotationMode, setAnnotationMode]         = useState(settings?.annotationMode ?? "auto");
+  const [annotationOption, setAnnotationOption]     = useState(settings?.annotationOption ?? "annotate_extract");
+  const [detectionGranularity, setDetectionGranularity] = useState(settings?.detectionGranularity ?? "word");
+  const [ocrOption, setOcrOption]                   = useState(settings?.ocrOption ?? "tesseract");
+  const [font, setFont]                             = useState(settings?.font ?? "khmer");
+  const [imageType, setImageType]                   = useState(settings?.imageType ?? "scantext");
+
+  const handleApply = () => {
+    const config = {
+      detectionEnabled,
+      recognitionEnabled,
+      annotationMode,
+      annotationOption,
+      detectionGranularity,
+      ocrOption,
+      font,
+      imageType,
+    };
+    onApply && onApply(config);
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -162,16 +178,28 @@ export default function MultiOCRoption({ open, onOpenChange }) {
                 </SubSetting>
 
                 {annotationMode === "auto" && (
-                  <SubSetting label="Annotation Option" description="Output behavior for detected regions">
-                    <RadioGroup
-                      options={[
-                        { value: "annotate_only",    label: "Annotation Only" },
-                        { value: "annotate_extract", label: "Annotation & Extract" },
-                      ]}
-                      selected={annotationOption}
-                      onChange={setAnnotationOption}
-                    />
-                  </SubSetting>
+                  <>
+                    <SubSetting label="Annotation Option" description="Output behavior for detected regions">
+                      <RadioGroup
+                        options={[
+                          { value: "annotate_only",    label: "Annotation Only" },
+                          { value: "annotate_extract", label: "Annotation & Extract" },
+                        ]}
+                        selected={annotationOption}
+                        onChange={setAnnotationOption}
+                      />
+                    </SubSetting>
+                    <SubSetting label="Detection Granularity" description="Level of text region detection">
+                      <RadioGroup
+                        options={[
+                          { value: "word", label: "Word Level" },
+                          { value: "line", label: "Line Level" },
+                        ]}
+                        selected={detectionGranularity}
+                        onChange={setDetectionGranularity}
+                      />
+                    </SubSetting>
+                  </>
                 )}
               </div>
             </Section>
@@ -232,7 +260,7 @@ export default function MultiOCRoption({ open, onOpenChange }) {
         {/* Sticky footer */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-white space-y-3">
           <button
-            onClick={() => onOpenChange(false)}
+            onClick={handleApply}
             className="w-full py-3 rounded-xl text-white text-sm font-bold tracking-widest uppercase transition-all duration-200 shadow-sm active:scale-[0.98] font-mono"
             style={{
               backgroundColor: "#F88F2D",

@@ -106,8 +106,9 @@ export function AnnotationCanvas({
       ctx.fillRect(x, y, w, h);
 
       // Draw label above the box
+      
       const label = annotation.text || `#${index + 1}`;
-      ctx.font = "16px Arial";
+      ctx.font = "14px Arial";
 
       // Measure text width for background
       const textWidth = ctx.measureText(label).width;
@@ -115,12 +116,12 @@ export function AnnotationCanvas({
 
       // Background rectangle - position it above the box, but handle edge cases
       const labelY = y - textHeight > 0 ? y - textHeight : y + h + 2;
-      ctx.fillStyle = "red";
-      ctx.fillRect(x, labelY, textWidth + 6, textHeight);
+      // ctx.fillStyle = "red";
+      ctx.fillRect(x, labelY, textWidth + 4, textHeight);
 
       // Text
-      ctx.fillStyle = "white";
-      ctx.fillText(label, x + 3, labelY + textHeight - 3);
+      ctx.fillStyle = "red";
+      ctx.fillText(label, x + 2, labelY + textHeight - 2);
     }
 
     if (annotation.type === "polygon") {
