@@ -1,0 +1,148 @@
+# =============================================================================
+# ROOT .gitignore - Khmer Data Annotation Project
+# =============================================================================
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+**/venv/
+**/myenv/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Python test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.test-results
+coverage/
+
+# =============================================================================
+# Node.js / Next.js / React
+# =============================================================================
+node_modules/
+**/node_modules/
+.next/
+out/
+dist/
+dist-ssr/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn
+.yarn-integrity
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# =============================================================================
+# Environment Variables & Secrets
+# =============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+**/.env
+*.key
+*.pem
+*.local
+
+# Service account files
+**/jomnam-service-account.json
+backend/firebase/jomnam-service-account.json
+
+# =============================================================================
+# IDE / Editors
+# =============================================================================
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# =============================================================================
+# Operating System
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# Build & Output Files
+# =============================================================================
+out/
+Khmer-Annotation-Tool-Frontend/
+
+# =============================================================================
+# ML Models & Large Files
+# =============================================================================
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+
+# =============================================================================
+# Database
+# =============================================================================
+*.sqlite3
+*.db
+
+# =============================================================================
+# Generated / Temporary Files
+# =============================================================================
+ocr_result.json
+ocr_text.txt
+
+# =============================================================================
+# Docker
+# =============================================================================
+# Uncomment if you want to ignore Docker build artifacts
+# docker-compose.override.yml

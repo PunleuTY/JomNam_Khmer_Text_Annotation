@@ -1,0 +1,69 @@
+GEMINI KHMER TEXT EXTRACTION RESULTS
+==================================================
+
+Image: ./image_testing/MPTC2.jpg
+JSON: D:\NGB_II_Project\Khmer-Data-Annotation-Tool\ML\ML_V3\../detected_khmer_text_model_coordinates.json
+Total detections: 29
+
+COORDINATE REFERENCE:
+- Detection 0: (797, 1241) to (967, 1292)
+- Detection 1: (131, 1233) to (407, 1302)
+- Detection 2: (423, 83) to (754, 146)
+- Detection 3: (131, 1073) to (266, 1127)
+- Detection 4: (895, 1186) to (1049, 1231)
+- Detection 5: (130, 806) to (244, 851)
+- Detection 6: (459, 1073) to (612, 1133)
+- Detection 7: (176, 665) to (1057, 757)
+- Detection 8: (127, 862) to (276, 906)
+- Detection 9: (243, 1182) to (442, 1239)
+- Detection 10: (440, 1183) to (573, 1234)
+- Detection 11: (181, 684) to (1069, 767)
+- Detection 12: (125, 909) to (317, 966)
+- Detection 13: (464, 485) to (712, 538)
+- Detection 14: (129, 959) to (478, 1020)
+- Detection 15: (180, 246) to (370, 293)
+- Detection 16: (299, 289) to (690, 353)
+- Detection 17: (910, 1021) to (1049, 1074)
+- Detection 18: (155, 570) to (1068, 652)
+- Detection 19: (126, 293) to (303, 341)
+- Detection 20: (908, 914) to (1051, 964)
+- Detection 21: (581, 145) to (776, 194)
+- Detection 22: (123, 1401) to (602, 1466)
+- Detection 23: (552, 536) to (628, 583)
+- Detection 24: (347, 807) to (433, 852)
+- Detection 25: (85, 1120) to (943, 1184)
+- Detection 26: (456, 143) to (777, 194)
+- Detection 27: (137, 960) to (668, 1023)
+- Detection 28: (128, 920) to (296, 968)
+
+EXTRACTED TEXT:
+------------------------------
+Detection 0: ផ្តល់សេវាកម្ម
+Detection 1: ការធានារ៉ាប់
+Detection 2: រាជរដ្ឋាភិបាល
+Detection 3: សកល
+Detection 4: លទ្ធភាព
+Detection 5: ទីផ្សារ
+Detection 6: សេវាកម្ម
+Detection 7: ដើម្បីឱ្យកិច្ចខិតខំប្រឹងប្រែងទាំងអស់ទាំងនេះមានប្រសិទ្ធភាពខ្ពស់និងស្ថិតស្ថេរ
+Detection 8: កម្មវិធី
+Detection 9: និងមានន័យ
+Detection 10: ហិរញ្ញវត្ថុ
+Detection 11: ដើម្បីឱ្យកិច្ចខិតខំប្រឹងប្រែងទាំងអស់ទាំងនេះមានប្រសិទ្ធភាពខ្ពស់និងស្ថិតស្ថេរ
+Detection 12: លក្ខណៈ
+Detection 13: ឱកាសធុរកិច្ច
+Detection 14: ធានានូវសេវាកម្ម
+Detection 15: និងជំនួយ
+Detection 16: សម្រាប់ភាពជោគជ័យ
+Detection 17: អាសន្ន
+Detection 18: យើងបានប្តេជ្ញាផ្តល់ជូននូវសេវាកម្មឱ្យបានគ្រប់ជ្រុងជ្រោយ
+Detection 19: ធ្វើឱ្យការ
+Detection 20: ហិរញ្ញវត្ថុ
+Detection 21: នៅទូទាំងពិភពលោក
+Detection 22: បច្ចេកវិទ្យាថ្មីនិង
+Detection 23: តាមដាន
+Detection 24: ការធ្វើ
+Detection 25: ហេតុដូច្នេះហើយយើងប្តេជ្ញាជួយអ្នកក្នុងការទទួលបាននូវ
+Detection 26: ទូទាំងពិភពលោក
+Detection 27: ធានានូវសេវាកម្ម
+Detection 28: យុទ្ធសាស្ត្រ

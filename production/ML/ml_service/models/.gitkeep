@@ -1,0 +1,4 @@
+# Placeholder to keep models directory in git
+# Add your trained models here:
+# - best.pt (YOLO model)
+# - Other model files...

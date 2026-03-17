@@ -1,0 +1,25 @@
+# ML Inference Service Dependencies
+# Install: pip install -r requirements.txt
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# ML Models
+ultralytics==8.1.0
+pytesseract==0.3.10
+
+# Image Processing
+opencv-python==4.9.0.80
+pillow==10.2.0
+numpy==1.26.3
+
+# Validation
+pydantic==2.5.3
+
+# Environment
+python-dotenv==1.0.0
+
+# HTTP Client (for testing)
+httpx==0.26.0

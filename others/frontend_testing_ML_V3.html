@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Khmer Data Annotation Tool</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f6f7f9; margin:0; padding:20px; }
+h1 { margin:0 0 12px; color:#ff3f34; }
+.row { display:flex; gap:16px; align-items:flex-start; }
+.col { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+.col.left { width:320px; }
+.col.right { flex:1; }
+.section-title { font-weight:600; margin:6px 0 8px; font-size:14px; }
+#canvasHolder { position:relative; display:inline-block; border:1px solid #d1d5db; border-radius:8px; overflow:hidden; background:#00000009; }
+canvas { display:block; }
+.controls { display:flex; gap:8px; flex-wrap:wrap; }
+button { cursor:pointer; border-radius:10px; border:1px solid #e5e7eb; background:#fff; padding:8px 10px; }
+button.primary { background:#ff3f34; color:#fff; border-color:#ff3f34; }
+button.warning { background:#fff0f0; color:#b91c1c; border-color:#fecaca; }
+button:disabled { opacity:0.5; cursor:not-allowed; }
+.list { margin-top:10px; border:1px solid #e5e7eb; border-radius:8px; max-height:220px; overflow:auto; }
+.list-item { display:flex; gap:8px; align-items:flex-start; padding:8px; border-bottom:1px solid #eee; }
+.list-item:last-child { border-bottom:0; }
+.list-item textarea { width:140px; }
+.pill { display:inline-block; font-size:12px; background:#eef2ff; color:#3730a3; padding:2px 6px; border-radius:999px; }
+.legend { display:flex; gap:12px; font-size:12px; color:#6b7280; align-items:center; margin:8px 0; }
+.legend .box { width:12px; height:12px; border:2px solid; border-radius:2px; display:inline-block; margin-right:4px; }
+.legend .red { border-color:#ef4444; }
+pre { white-space:pre-wrap; word-break:break-word; background:#0b1020; color:#d1e7ff; padding:10px; border-radius:8px; max-height:220px; overflow:auto; }
+.project-list { margin-bottom:10px; display:flex; flex-wrap:wrap; gap:6px; position:relative; z-index:10; }
+.project-list button { font-size:12px; padding:4px 8px; pointer-events:auto; }
+.project-list button.active { background:#3b82f6; color:#fff; border-color:#3b82f6; }
+</style>
+</head>
+<body>
+
+<h1>Khmer Data Annotation Tool</h1>
+
+<div class="project-list" id="projectList">
+  <em>Loading projects...</em>
+</div>
+
+<div class="row">
+  <div class="col left">
+    <div class="section-title">Upload Image</div>
+    <input id="fileInput" type="file" accept="image/*" />
+    <div style="height:8px"></div>
+    <div class="controls">
+      <button id="btnSend" class="primary">Send to FastAPI OCR</button>
+      <button id="btnSave" class="primary">Save Ground Truth</button>
+      <button id="btnClear" class="warning">Clear</button>
+    </div>
+    <div style="height:10px"></div>
+    <div class="section-title">Legend</div>
+    <div class="legend"><span><span class="box red"></span> User boxes</span></div>
+    <div style="height:10px"></div>
+    <div class="section-title">Debug / Result</div>
+    <pre id="debug"></pre>
+  </div>
+
+  <div class="col right">
+    <div class="section-title">Canvas</div>
+    <div id="canvasHolder">
+      <canvas id="canvas" width="960" height="540"></canvas>
+    </div>
+    <div style="height:14px"></div>
+    <div class="section-title">Annotations</div>
+    <div class="list" id="annotationsList"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let currentImg = new Image();
+let drawing=false, startX=0, startY=0;
+let userBoxes=[], ocrResults=[], filename="", currentProjectId=null;
+
+const fileInput=document.getElementById('fileInput');
+const btnSend=document.getElementById('btnSend');
+const btnSave=document.getElementById('btnSave');
+const btnClear=document.getElementById('btnClear');
+const debugEl=document.getElementById('debug');
+const annotationsList=document.getElementById('annotationsList');
+const projectListEl=document.getElementById('projectList');
+
+function log(obj){ debugEl.textContent=typeof obj==='string'?obj:JSON.stringify(obj,null,2); }
+
+// Load projects
+async function loadProjects(){
+    try{
+        const res=await fetch('http://127.0.0.1:5000/projects');
+        const data=await res.json();
+        projectListEl.innerHTML='';
+        data.projects.forEach((p,i)=>{
+            const btn=document.createElement('button');
+            btn.textContent=p.name;
+            btn.onclick=()=> {
+                currentProjectId=p._id || p.id;
+                Array.from(projectListEl.children).forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+            };
+            if(i===0){ currentProjectId=p._id || p.id; btn.classList.add('active'); }
+            projectListEl.appendChild(btn);
+        });
+    } catch(e){
+        projectListEl.innerHTML='<em>Failed to load projects</em>';
+        console.error(e);
+    }
+}
+window.addEventListener('DOMContentLoaded', loadProjects);
+
+// File input
+fileInput.addEventListener('change', e=>{
+    const file=e.target.files[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=> currentImg.src=reader.result;
+    reader.readAsDataURL(file);
+});
+
+// Canvas drawing
+currentImg.onload=()=>{ canvas.width=currentImg.naturalWidth; canvas.height=currentImg.naturalHeight; redraw(); };
+canvas.addEventListener('mousedown', e=>{ drawing=true; const r=canvas.getBoundingClientRect(); startX=e.clientX-r.left; startY=e.clientY-r.top; });
+canvas.addEventListener('mousemove', e=>{ if(!drawing)return; redraw(); const r=canvas.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top; ctx.strokeStyle='red'; ctx.lineWidth=2; ctx.strokeRect(startX,startY,x-startX,y-startY); });
+canvas.addEventListener('mouseup', e=>{
+    if(!drawing) return;
+    drawing=false;
+    const r=canvas.getBoundingClientRect();
+    const x2=e.clientX-r.left, y2=e.clientY-r.top;
+    userBoxes.push([Math.min(startX,x2), Math.min(startY,y2), Math.max(startX,x2), Math.max(startY,y2)]);
+    redraw();
+    renderAnnotations();
+});
+
+function redraw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(currentImg.src) ctx.drawImage(currentImg,0,0);
+    ctx.strokeStyle='red'; ctx.lineWidth=2;
+    userBoxes.forEach(b=>ctx.strokeRect(b[0],b[1],b[2]-b[0],b[3]-b[1]));
+}
+
+function renderAnnotations(){
+    annotationsList.innerHTML='';
+    ocrResults.forEach((ann,i)=>{
+        const div=document.createElement('div'); div.className='list-item';
+        div.innerHTML=`<strong>Box ${i+1}:</strong> [${ann.box_coordinates.map(v=>v.toFixed(0)).join(', ')}]<br/><img src="data:image/png;base64,${ann.cropped_image_base64}" width="150"/><br/><textarea data-index="${i}" rows="3">${ann.extracted_text}</textarea>`;
+        annotationsList.appendChild(div);
+        div.querySelector('textarea').addEventListener('input', e=>{ ocrResults[i].extracted_text=e.target.value; });
+    });
+}
+
+// Send to FastAPI OCR
+btnSend.addEventListener('click', async ()=>{
+    if(!currentImg.src || userBoxes.length===0) return alert('Select image and draw boxes first');
+    if(!currentProjectId) return alert('Select a project first');
+    const file=fileInput.files[0];
+    console.log('Sending to FastAPI OCR with boxes:', userBoxes);
+    console.log('Current Project ID:', currentProjectId);
+    console.log('File:', file);
+    const formData=new FormData();
+    formData.append('image',file);
+    formData.append('annotations',JSON.stringify(userBoxes));
+    formData.append('project_id',currentProjectId);
+
+    try{
+        const res=await fetch('http://127.0.0.1:8000/images/',{method:'POST', body:formData});
+        const data=await res.json();
+        filename=data.filename;
+        ocrResults=data.processing_result||[];
+        renderAnnotations();
+        log(data);
+        alert('OCR processed successfully!');
+    } catch(err){ console.error(err); alert('Error sending to FastAPI'); }
+});
+
+// Save Ground Truth
+btnSave.addEventListener('click', async ()=>{
+    if(!filename || ocrResults.length===0) return alert('No OCR results to save');
+    if(!currentProjectId) return alert('Select a project first');
+    const payload={filename, project_id:currentProjectId, annotations:ocrResults, meta:{tool:"Khmer Data Annotation Tool", lang:"khm", timestamp:new Date().toISOString()}};
+    try{
+        const res=await fetch('http://127.0.0.1:5000/images/save-groundtruth',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        const data=await res.json();
+        log(data);
+        alert(data.message||'Ground truth saved successfully!');
+    } catch(err){ console.error(err); alert('Error saving ground truth'); }
+});
+
+// Clear
+btnClear.addEventListener('click', ()=>{ userBoxes=[]; ocrResults=[]; filename=""; currentImg.src=""; annotationsList.innerHTML=''; redraw(); log('Cleared all'); });
+</script>
+
+</body>
+</html>
