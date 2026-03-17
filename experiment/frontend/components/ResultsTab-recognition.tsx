@@ -91,7 +91,7 @@ export function ResultsTab() {
       </div>
 
       <div className="space-y-6">
-        {extractedResults.map((result) => {
+        {extractedResults.map((result, index) => {
           const evaluation = evaluationResults.find(
             (e) => e.imageId === result.imageId,
           );
@@ -99,7 +99,7 @@ export function ResultsTab() {
 
           return (
             <div
-              key={result.imageId}
+              key={`${result.imageId}-${index}`}
               className="border rounded-lg p-6 space-y-4"
             >
               {/* Result Header */}

@@ -588,6 +588,80 @@ async def extract_text_endpoint(
 
 
 # === POST: Evaluate extracted text against ground truth ===
+class AutoDetectResponse(BaseModel):
+    success: bool
+    image_width: int = 0
+    image_height: int = 0
+    boxes: List[Dict[str, Any]] = []
+    error: str = ""
+
+
+@app.post("/auto-detect")
+async def auto_detect(
+    image: UploadFile = File(...),
+    mode: str = Form("word"),
+    extract_text: bool = Form(False),
+):
+    """Accept an uploaded image, run DocTR detection and optionally extract text.
+    Returns bounding boxes (and text if extract_text=True).
+    """
+    try:
+        contents = await image.read()
+        pil_img = PILImage.open(io.BytesIO(contents)).convert("RGB")
+        original_width, original_height = pil_img.size
+        print(f"[auto-detect] Image: {image.filename}, size: {original_width}x{original_height}, mode: {mode}, extract: {extract_text}")
+
+        import tempfile
+        suffix = os.path.splitext(image.filename or "img.jpg")[1] or ".jpg"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        try:
+            doc = DocumentFile.from_images(tmp_path)
+            image_shapes = [img.shape[:2] for img in doc]
+
+            print("Running DocTR detection...")
+            result = model(doc)
+
+            boxes = convert_to_absolute_boxes(result, image_shapes, original_width, original_height, mode)
+            print(f"[auto-detect] Detected {len(boxes)} boxes (mode: {mode})")
+
+            if extract_text:
+                print(f"[auto-detect] Extracting text from {len(boxes)} boxes using Tesseract...")
+                for idx, box in enumerate(boxes):
+                    box_coords = (
+                        box["x"],
+                        box["y"],
+                        box["x"] + box["width"],
+                        box["y"] + box["height"]
+                    )
+                    extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)
+                    box["text"] = extracted
+                    box["confidence"] = confidence
+
+            return {
+                "success": True,
+                "image_width": original_width,
+                "image_height": original_height,
+                "boxes": boxes,
+            }
+        finally:
+            os.unlink(tmp_path)
+
+    except Exception as e:
+        print(f"[auto-detect] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "image_width": 0,
+            "image_height": 0,
+            "boxes": [],
+            "error": str(e),
+        }
+
+
 class EvaluateRequest(BaseModel):
     extracted_text: str
     ground_truth: str
