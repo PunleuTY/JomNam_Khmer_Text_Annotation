@@ -392,7 +392,7 @@ func TriggerOCR(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client
 		}
 
 		// Call ML server
-		mlURL := "http://127.0.0.1:8000/images/"
+		mlURL := "http://127.0.0.1:8000/ocr"
 		bodyBuf := &bytes.Buffer{}
 		writer := multipart.NewWriter(bodyBuf)
 		part, err := writer.CreateFormFile("image", img.Name)
@@ -434,10 +434,10 @@ func TriggerOCR(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client
 	}
 }
 
-// AutoDetect uses ML_V4 (DocTR) to automatically detect text regions in an image.
+// AutoDetect uses ML_V4 to automatically detect text regions in an image.
 // It fetches the image from Cloudflare R2 and sends it to the ML_V4 /auto-detect endpoint.
 // Request: POST /images/:id/auto-detect
-// Body: { "mode": "word"|"line", "extract_text": true|false }
+// Body: { "mode": "word"|"line", "extract_text": true|false, "detection_model": "doctr"|"yolo", "recognition_model": "tesseract"|"kiriocr" }
 func AutoDetect(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		imageIDStr := c.Param("id")
@@ -464,8 +464,10 @@ func AutoDetect(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client
 
 		// Parse request body
 		var body struct {
-			Mode        string `json:"mode"`
-			ExtractText bool   `json:"extract_text"`
+			Mode             string `json:"mode"`
+			ExtractText      bool   `json:"extract_text"`
+			DetectionModel   string `json:"detection_model"`
+			RecognitionModel string `json:"recognition_model"`
 		}
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
@@ -526,6 +528,16 @@ func AutoDetect(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client
 			extractStr = "true"
 		}
 		_ = writer.WriteField("extract_text", extractStr)
+
+		// Forward model selections
+		if body.DetectionModel == "" {
+			body.DetectionModel = "doctr"
+		}
+		if body.RecognitionModel == "" {
+			body.RecognitionModel = "tesseract"
+		}
+		_ = writer.WriteField("detection_model", body.DetectionModel)
+		_ = writer.WriteField("recognition_model", body.RecognitionModel)
 		writer.Close()
 
 		req, err := http.NewRequest("POST", mlURL, bodyBuf)

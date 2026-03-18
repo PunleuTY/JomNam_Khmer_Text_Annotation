@@ -86,9 +86,8 @@ const Annotate = () => {
     annotationMode: "auto",
     annotationOption: "annotate_extract",
     detectionGranularity: "word",
-    ocrOption: "tesseract",
-    font: "khmer",
-    imageType: "scantext",
+    detectionModel: "doctr",
+    recognitionModel: "tesseract",
   });
   const [autoDetectLoading, setAutoDetectLoading] = useState(false);
   const [_batchInfo, setBatchInfo] = useState({
@@ -331,6 +330,8 @@ const Annotate = () => {
       const res = await triggerAutoDetect(currentId, {
         mode,
         extractText,
+        detectionModel: ocrSettings.detectionModel || "doctr",
+        recognitionModel: ocrSettings.recognitionModel || "tesseract",
       });
 
       if (!res || !res.success) {
@@ -964,7 +965,7 @@ const Annotate = () => {
                     >
                       <PenTool className="w-4 h-4" /> Edit
                     </Button>
-                    <Button
+                    {/* <Button
                       variant="outline"
                       size="sm"
                       onClick={runOcr}
@@ -979,24 +980,44 @@ const Annotate = () => {
                           <ScanText className="w-4 h-4 mr-2" /> OCR Entire
                         </>
                       )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={runAutoDetect}
-                      disabled={autoDetectLoading || !currentId}
-                      className="bg-[#F88F2D] text-white hover:bg-[#E67D1B]"
-                    >
-                      {autoDetectLoading ? (
-                        <>
-                          <ScanText className="w-4 h-4 mr-2 animate-spin" /> Detecting...
-                        </>
-                      ) : (
-                        <>
-                          <ScanText className="w-4 h-4 mr-2" /> Auto Detect
-                        </>
-                      )}
-                    </Button>
+                    </Button> */}
+                    {ocrSettings.annotationOption === "Extracted_only" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={runOcr}
+                        disabled={ocrLoading || !currentId || !(annotations[currentId]?.length)}
+                        className="bg-[#F88F2D] text-white hover:bg-[#E67D1B]"
+                      >
+                        {ocrLoading ? (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2 animate-spin" /> Extracting...
+                          </>
+                        ) : (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2" /> Extract Text
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={runAutoDetect}
+                        disabled={autoDetectLoading || !currentId}
+                        className="bg-[#F88F2D] text-white hover:bg-[#E67D1B]"
+                      >
+                        {autoDetectLoading ? (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2 animate-spin" /> Detecting...
+                          </>
+                        ) : (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2" /> Auto Detect
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

@@ -14,6 +14,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 import cv2
 
+# KiriOCR for Khmer text recognition
+try:
+    from kiri_ocr import OCR as KiriOCR
+    kiri_ocr_available = True
+except ImportError:
+    kiri_ocr_available = False
+    print("WARNING: kiri_ocr not installed. Install with: pip install kiri-ocr")
+
 # ============= Initial Classes =============
 class Image(BaseModel):
     path: str
@@ -86,7 +94,74 @@ print("Loading OCR model...")
 model = ocr_predictor(pretrained=True)
 print("Model loaded successfully.")
 
+# ---- Initialize KiriOCR ----
+kiri_model = None
+if kiri_ocr_available:
+    try:
+        print("Loading KiriOCR model...")
+        kiri_model = KiriOCR()
+        print("KiriOCR model loaded successfully.")
+    except Exception as e:
+        print(f"Failed to load KiriOCR: {e}")
+        kiri_model = None
+else:
+    print("KiriOCR not available — Tesseract will be used as fallback.")
+
 # ============= Helper Functions =============
+def extract_text_with_kiriocr(pil_image, box_coords):
+    """Extract text from a cropped image region using KiriOCR.
+
+    Args:
+        pil_image: PIL Image object (full image)
+        box_coords: Tuple of (x1, y1, x2, y2) coordinates
+
+    Returns:
+        Tuple of (extracted_text, confidence)
+    """
+    x1, y1, x2, y2 = box_coords
+
+    # Validate coordinates
+    img_width, img_height = pil_image.size
+    x1 = max(0, min(x1, img_width))
+    y1 = max(0, min(y1, img_height))
+    x2 = max(0, min(x2, img_width))
+    y2 = max(0, min(y2, img_height))
+
+    if x2 <= x1 or y2 <= y1:
+        return "", 0.0
+
+    cropped = pil_image.crop((x1, y1, x2, y2))
+    if cropped.size[0] < 8 or cropped.size[1] < 8:
+        return "", 0.0
+
+    try:
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            cropped.save(tmp, format="PNG")
+            tmp_path = tmp.name
+
+        try:
+            text, results = kiri_model.extract_text(tmp_path)
+            text = text.strip() if text else ""
+
+            # Compute average confidence from detailed results
+            if results and len(results) > 0:
+                confs = [r.confidence for r in results if hasattr(r, "confidence")]
+                avg_conf = sum(confs) / len(confs) if confs else 0.5
+            else:
+                avg_conf = 0.5 if text else 0.0
+
+            if text:
+                print(f"  [KiriOCR] Text: '{text}' (conf: {avg_conf:.2f})")
+            return text, avg_conf
+        finally:
+            os.unlink(tmp_path)
+
+    except Exception as e:
+        print(f"KiriOCR error: {e}")
+        return "", 0.0
+
+
 def convert_to_absolute_boxes(result, image_shapes: list, original_width: int, original_height: int, detection_mode: str = "word") -> List[Dict[str, Any]]:
     """Convert DocTR relative coordinates to absolute pixel coordinates.
 
@@ -515,6 +590,80 @@ def read_root():
     return {"message": "Server is running"}
 
 
+# === POST: OCR - Extract text from user-drawn bounding boxes ===
+@app.post("/ocr")
+async def ocr_endpoint(
+    image: UploadFile = File(...),
+    annotations: str = Form("[]"),
+    project_id: str = Form(""),
+    recognition_model: str = Form("tesseract"),
+):
+    """Accept an uploaded image + bounding box annotations, extract text from each box.
+    annotations: JSON array of [x1, y1, x2, y2] boxes.
+    Returns processing_result with extracted text per box.
+    """
+    start_time = time.time()
+    try:
+        import json as _json
+        boxes = _json.loads(annotations)
+        if not boxes or not isinstance(boxes, list):
+            return {"success": False, "processing_result": [], "error": "No annotations provided"}
+
+        contents = await image.read()
+        pil_img = PILImage.open(io.BytesIO(contents)).convert("RGB")
+        original_width, original_height = pil_img.size
+        print(f"[ocr] Image: {image.filename}, size: {original_width}x{original_height}, boxes: {len(boxes)}, model: {recognition_model}")
+
+        use_kiriocr = recognition_model == "kiriocr" and kiri_model is not None
+        if recognition_model == "kiriocr" and kiri_model is None:
+            print("[ocr] KiriOCR requested but not available, falling back to Tesseract")
+
+        processing_result = []
+        for idx, box in enumerate(boxes):
+            if not isinstance(box, list) or len(box) < 4:
+                processing_result.append({"extracted_text": "", "confidence": 0.0})
+                continue
+
+            x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+            # Clamp to image bounds
+            x1 = max(0, min(x1, original_width))
+            y1 = max(0, min(y1, original_height))
+            x2 = max(0, min(x2, original_width))
+            y2 = max(0, min(y2, original_height))
+
+            if x2 <= x1 or y2 <= y1:
+                processing_result.append({"extracted_text": "", "confidence": 0.0})
+                continue
+
+            box_coords = (x1, y1, x2, y2)
+            if use_kiriocr:
+                extracted, confidence = extract_text_with_kiriocr(pil_img, box_coords)
+            else:
+                extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)
+
+            processing_result.append({"extracted_text": extracted, "confidence": confidence})
+            print(f"  Box {idx+1}: [{x1},{y1},{x2},{y2}] -> '{extracted}' (conf: {confidence:.2f})")
+
+        elapsed = (time.time() - start_time) * 1000
+        print(f"[ocr] Done in {elapsed:.0f}ms, processed {len(processing_result)} boxes")
+
+        return {
+            "success": True,
+            "processing_result": processing_result,
+            "inference_speed": round(elapsed, 2),
+        }
+
+    except Exception as e:
+        print(f"[ocr] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "processing_result": [],
+            "error": str(e),
+        }
+
+
 # === POST: Extract text from uploaded image ===
 @app.post("/extract-text")
 async def extract_text_endpoint(
@@ -601,15 +750,21 @@ async def auto_detect(
     image: UploadFile = File(...),
     mode: str = Form("word"),
     extract_text: bool = Form(False),
+    detection_model: str = Form("doctr"),
+    recognition_model: str = Form("tesseract"),
 ):
-    """Accept an uploaded image, run DocTR detection and optionally extract text.
+    """Accept an uploaded image, run detection and optionally extract text.
     Returns bounding boxes (and text if extract_text=True).
+
+    detection_model: "doctr" (default) or "yolo"
+    recognition_model: "tesseract" (default) or "kiriocr"
     """
     try:
         contents = await image.read()
         pil_img = PILImage.open(io.BytesIO(contents)).convert("RGB")
         original_width, original_height = pil_img.size
         print(f"[auto-detect] Image: {image.filename}, size: {original_width}x{original_height}, mode: {mode}, extract: {extract_text}")
+        print(f"[auto-detect] Detection model: {detection_model}, Recognition model: {recognition_model}")
 
         import tempfile
         suffix = os.path.splitext(image.filename or "img.jpg")[1] or ".jpg"
@@ -621,14 +776,24 @@ async def auto_detect(
             doc = DocumentFile.from_images(tmp_path)
             image_shapes = [img.shape[:2] for img in doc]
 
+            # Detection phase — currently DocTR is the primary engine
+            if detection_model == "yolo":
+                print("[auto-detect] YOLO detection requested (not yet implemented, falling back to DocTR)")
             print("Running DocTR detection...")
             result = model(doc)
 
             boxes = convert_to_absolute_boxes(result, image_shapes, original_width, original_height, mode)
             print(f"[auto-detect] Detected {len(boxes)} boxes (mode: {mode})")
 
+            # Recognition phase
             if extract_text:
-                print(f"[auto-detect] Extracting text from {len(boxes)} boxes using Tesseract...")
+                use_kiriocr = recognition_model == "kiriocr" and kiri_model is not None
+                engine_name = "KiriOCR" if use_kiriocr else "Tesseract"
+
+                if recognition_model == "kiriocr" and kiri_model is None:
+                    print("[auto-detect] KiriOCR requested but not available, falling back to Tesseract")
+
+                print(f"[auto-detect] Extracting text from {len(boxes)} boxes using {engine_name}...")
                 for idx, box in enumerate(boxes):
                     box_coords = (
                         box["x"],
@@ -636,7 +801,10 @@ async def auto_detect(
                         box["x"] + box["width"],
                         box["y"] + box["height"]
                     )
-                    extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)
+                    if use_kiriocr:
+                        extracted, confidence = extract_text_with_kiriocr(pil_img, box_coords)
+                    else:
+                        extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)
                     box["text"] = extracted
                     box["confidence"] = confidence
 

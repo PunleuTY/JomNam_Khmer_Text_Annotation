@@ -98,9 +98,8 @@ export default function MultiOCRoption({ open, onOpenChange, onApply, settings }
   const [annotationMode, setAnnotationMode]         = useState(settings?.annotationMode ?? "auto");
   const [annotationOption, setAnnotationOption]     = useState(settings?.annotationOption ?? "annotate_extract");
   const [detectionGranularity, setDetectionGranularity] = useState(settings?.detectionGranularity ?? "word");
-  const [ocrOption, setOcrOption]                   = useState(settings?.ocrOption ?? "tesseract");
-  const [font, setFont]                             = useState(settings?.font ?? "khmer");
-  const [imageType, setImageType]                   = useState(settings?.imageType ?? "scantext");
+  const [detectionModel, setDetectionModel]         = useState(settings?.detectionModel ?? "doctr");
+  const [recognitionModel, setRecognitionModel]     = useState(settings?.recognitionModel ?? "tesseract");
 
   const handleApply = () => {
     const config = {
@@ -109,9 +108,8 @@ export default function MultiOCRoption({ open, onOpenChange, onApply, settings }
       annotationMode,
       annotationOption,
       detectionGranularity,
-      ocrOption,
-      font,
-      imageType,
+      detectionModel,
+      recognitionModel,
     };
     onApply && onApply(config);
     onOpenChange(false);
@@ -154,34 +152,21 @@ export default function MultiOCRoption({ open, onOpenChange, onApply, settings }
           <div className="p-6 space-y-4">
 
             {/* TEXT DETECTION */}
-            <Section title="Text Detection" badge="Module 01" accent="emerald">
+            <Section title="Option" badge="Module 01" accent="emerald">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500 font-medium">Enable module</span>
-                <ToggleSwitch
-                  enabled={detectionEnabled}
-                  onToggle={() => setDetectionEnabled(!detectionEnabled)}
-                />
               </div>
 
               <div className={`space-y-3 transition-all duration-300 ${
                 detectionEnabled ? "opacity-100" : "opacity-30 pointer-events-none"
               }`}>
-                <SubSetting label="Annotation Mode" description="How regions are identified">
-                  <RadioGroup
-                    options={[
-                      { value: "auto",   label: "Auto Detect" },
-                      { value: "manual", label: "Manual" },
-                    ]}
-                    selected={annotationMode}
-                    onChange={setAnnotationMode}
-                  />
-                </SubSetting>
 
                 {annotationMode === "auto" && (
                   <>
                     <SubSetting label="Annotation Option" description="Output behavior for detected regions">
                       <RadioGroup
                         options={[
+                          { value: "Extracted_only",    label: "Extracted_only" },
                           { value: "annotate_only",    label: "Annotation Only" },
                           { value: "annotate_extract", label: "Annotation & Extract" },
                         ]}
@@ -204,52 +189,34 @@ export default function MultiOCRoption({ open, onOpenChange, onApply, settings }
               </div>
             </Section>
 
-            {/* TEXT RECOGNITION */}
-            <Section title="Text Recognition" badge="Module 02" accent="violet">
+            {/* TEXT DETECTiON & TEXT RECOGNITION */}
+            <Section title="Model" badge="Module 02" accent="violet">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500 font-medium">Enable module</span>
-                <ToggleSwitch
-                  enabled={recognitionEnabled}
-                  onToggle={() => setRecognitionEnabled(!recognitionEnabled)}
-                />
               </div>
 
               <div className={`space-y-3 transition-all duration-300 ${
                 recognitionEnabled ? "opacity-100" : "opacity-30 pointer-events-none"
               }`}>
-                <SubSetting label="OCR Engine" description="Core recognition engine">
+                <SubSetting label="Detection" description="Core detection engine">
                   <RadioGroup
                     options={[
-                      { value: "kiriocr",   label: "KiriOCR" },
-                      { value: "paddleocr", label: "PaddleOCR" },
+                      { value: "doctr", label: "DocTR" },
+                      { value: "yolo",  label: "YOLO" },
+                    ]}
+                    selected={detectionModel}
+                    onChange={setDetectionModel}
+                  />
+                </SubSetting>
+
+                <SubSetting label="Recognition" description="Core recognition engine">
+                  <RadioGroup
+                    options={[
                       { value: "tesseract", label: "Tesseract" },
+                      { value: "kiriocr",   label: "KiriOCR" },
                     ]}
-                    selected={ocrOption}
-                    onChange={setOcrOption}
-                  />
-                </SubSetting>
-
-                <SubSetting label="Font Family" description="Target Khmer font variant">
-                  <RadioGroup
-                    options={[
-                      { value: "khmer",    label: "Khmer" },
-                      { value: "khmernew", label: "KhmerNew" },
-                      { value: "khmerui",  label: "KhmerUI" },
-                    ]}
-                    selected={font}
-                    onChange={setFont}
-                  />
-                </SubSetting>
-
-                <SubSetting label="Image Type" description="Source document category">
-                  <RadioGroup
-                    options={[
-                      { value: "scantext",    label: "Scan Text" },
-                      { value: "handwriting", label: "Handwriting" },
-                      { value: "digitaltext", label: "Digital Text" },
-                    ]}
-                    selected={imageType}
-                    onChange={setImageType}
+                    selected={recognitionModel}
+                    onChange={setRecognitionModel}
                   />
                 </SubSetting>
               </div>
@@ -272,11 +239,11 @@ export default function MultiOCRoption({ open, onOpenChange, onApply, settings }
           </button>
 
           <div className="flex items-center justify-between text-[10px] text-gray-400 px-1 font-mono">
-            <span>Engine: <span className="text-gray-600 uppercase">{ocrOption}</span></span>
+            <span>Detect: <span className="text-gray-600 uppercase">{detectionModel}</span></span>
             <span>·</span>
-            <span>Font: <span className="text-gray-600 uppercase">{font}</span></span>
+            <span>Recog: <span className="text-gray-600 uppercase">{recognitionModel}</span></span>
             <span>·</span>
-            <span>Mode: <span className="text-gray-600 uppercase">{imageType}</span></span>
+            <span>Gran: <span className="text-gray-600 uppercase">{detectionGranularity}</span></span>
           </div>
         </div>
 

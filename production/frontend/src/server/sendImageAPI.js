@@ -74,7 +74,7 @@ export const triggerOCR = async (imageId, boxes) => {
 };
 
 // Trigger ML_V4 auto-detect for an image (DocTR detection + optional text extraction)
-export const triggerAutoDetect = async (imageId, { mode = "word", extractText = false } = {}) => {
+export const triggerAutoDetect = async (imageId, { mode = "word", extractText = false, detectionModel = "doctr", recognitionModel = "tesseract" } = {}) => {
   if (!imageId) return null;
 
   const token = getAuthToken();
@@ -83,7 +83,12 @@ export const triggerAutoDetect = async (imageId, { mode = "word", extractText = 
   try {
     const res = await apiRequest(`/images/${imageId}/auto-detect`, {
       method: "POST",
-      body: JSON.stringify({ mode, extract_text: extractText }),
+      body: JSON.stringify({
+        mode,
+        extract_text: extractText,
+        detection_model: detectionModel,
+        recognition_model: recognitionModel,
+      }),
       headers,
     });
 

@@ -119,15 +119,6 @@ export function AnnotationList({
               </Button>
             </>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runOcr}
-            disabled={!annotations.length || busy}
-          >
-            <Play className="w-4 h-4 mr-2" />
-            {t("Run Ocr")}
-          </Button>
 
         </div>
       </CardHeader>
