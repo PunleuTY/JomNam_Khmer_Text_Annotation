@@ -7,12 +7,16 @@ import time
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import numpy as np
-import io, base64, re, os
+import io, base64, re, os, sys
 from PIL import Image as PILImage
 import pytesseract
 from pathlib import Path
 from dotenv import load_dotenv
 import cv2
+
+# Add utils directory to path for YOLO import
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
+from YoloKh.YoloModel import YOLODetector
 
 # KiriOCR for Khmer text recognition
 try:
@@ -107,7 +111,97 @@ if kiri_ocr_available:
 else:
     print("KiriOCR not available — Tesseract will be used as fallback.")
 
+# ---- Initialize YOLO ----
+yolo_model = None
+try:
+    yolo_weights = Path(__file__).resolve().parent.parent / "utils" / "YoloKh" / "best.pt"
+    if yolo_weights.exists():
+        print(f"Loading YOLO model from {yolo_weights}...")
+        yolo_model = YOLODetector(str(yolo_weights))
+        print("YOLO model loaded successfully.")
+    else:
+        print(f"YOLO weights not found at {yolo_weights}")
+except Exception as e:
+    print(f"Failed to load YOLO model: {e}")
+    yolo_model = None
+
 # ============= Helper Functions =============
+def run_yolo_detection(image_path: str, mode: str = "word") -> List[Dict[str, Any]]:
+    """Run YOLO detection and return boxes in the same format as DocTR.
+
+    Args:
+        image_path: Path to the image file
+        mode: "word" or "line" - for YOLO, both return raw detections
+
+    Returns:
+        List of box dicts with x, y, width, height, text, confidence
+    """
+    results = yolo_model.predict_image(image_path)
+    detections = yolo_model.get_detections(results)
+
+    boxes = []
+    for det in detections:
+        # bbox is [[x1, y1, x2, y2]]
+        bbox = det["bbox"]
+        if isinstance(bbox[0], list):
+            x1, y1, x2, y2 = [int(v) for v in bbox[0]]
+        else:
+            x1, y1, x2, y2 = [int(v) for v in bbox]
+
+        boxes.append({
+            "x": x1,
+            "y": y1,
+            "width": x2 - x1,
+            "height": y2 - y1,
+            "text": "",
+            "confidence": det["confidence"],
+        })
+
+    if mode == "line":
+        boxes = _merge_boxes_into_lines(boxes)
+
+    return boxes
+
+
+def _merge_boxes_into_lines(boxes: List[Dict[str, Any]], y_threshold: float = 0.5) -> List[Dict[str, Any]]:
+    """Merge word-level boxes into line-level boxes based on vertical overlap."""
+    if not boxes:
+        return []
+
+    sorted_boxes = sorted(boxes, key=lambda b: (b["y"], b["x"]))
+    lines: List[List[Dict[str, Any]]] = []
+
+    for box in sorted_boxes:
+        merged = False
+        box_cy = box["y"] + box["height"] / 2
+        for line in lines:
+            rep = line[0]
+            rep_cy = rep["y"] + rep["height"] / 2
+            overlap_thresh = min(box["height"], rep["height"]) * y_threshold
+            if abs(box_cy - rep_cy) < overlap_thresh:
+                line.append(box)
+                merged = True
+                break
+        if not merged:
+            lines.append([box])
+
+    merged_boxes = []
+    for line in lines:
+        x_min = min(b["x"] for b in line)
+        y_min = min(b["y"] for b in line)
+        x_max = max(b["x"] + b["width"] for b in line)
+        y_max = max(b["y"] + b["height"] for b in line)
+        avg_conf = sum(b["confidence"] for b in line) / len(line)
+        merged_boxes.append({
+            "x": x_min,
+            "y": y_min,
+            "width": x_max - x_min,
+            "height": y_max - y_min,
+            "text": "",
+            "confidence": avg_conf,
+        })
+
+    return merged_boxes
 def extract_text_with_kiriocr(pil_image, box_coords):
     """Extract text from a cropped image region using KiriOCR.
 
@@ -776,14 +870,18 @@ async def auto_detect(
             doc = DocumentFile.from_images(tmp_path)
             image_shapes = [img.shape[:2] for img in doc]
 
-            # Detection phase — currently DocTR is the primary engine
-            if detection_model == "yolo":
-                print("[auto-detect] YOLO detection requested (not yet implemented, falling back to DocTR)")
-            print("Running DocTR detection...")
-            result = model(doc)
-
-            boxes = convert_to_absolute_boxes(result, image_shapes, original_width, original_height, mode)
-            print(f"[auto-detect] Detected {len(boxes)} boxes (mode: {mode})")
+            # Detection phase
+            if detection_model == "yolo" and yolo_model is not None:
+                print("[auto-detect] Running YOLO detection...")
+                boxes = run_yolo_detection(tmp_path, mode)
+                print(f"[auto-detect] YOLO detected {len(boxes)} boxes (mode: {mode})")
+            else:
+                if detection_model == "yolo" and yolo_model is None:
+                    print("[auto-detect] YOLO requested but not available, falling back to DocTR")
+                print("Running DocTR detection...")
+                result = model(doc)
+                boxes = convert_to_absolute_boxes(result, image_shapes, original_width, original_height, mode)
+                print(f"[auto-detect] DocTR detected {len(boxes)} boxes (mode: {mode})")
 
             # Recognition phase
             if extract_text:

@@ -367,7 +367,7 @@ const Annotate = () => {
         accuracy: null,
         label: "",
         confidence: box.confidence || 0,
-        source: "auto-detect",
+        source: `auto-detect-${ocrSettings.detectionModel || "doctr"}`,
       }));
 
       const merged = [...existingAnns, ...newAnns];
@@ -376,7 +376,8 @@ const Annotate = () => {
         [currentId]: merged,
       }));
 
-      setSuccessMsg(`Detected ${detectedBoxes.length} text regions!`);
+      const modelLabel = (ocrSettings.detectionModel || "doctr").toUpperCase();
+      setSuccessMsg(`${modelLabel}: Detected ${detectedBoxes.length} text regions!`);
       setTimeout(() => setSuccessMsg(""), 2000);
 
       // Save auto-detected annotations
@@ -1013,7 +1014,7 @@ const Annotate = () => {
                           </>
                         ) : (
                           <>
-                            <ScanText className="w-4 h-4 mr-2" /> Auto Detect
+                            <ScanText className="w-4 h-4 mr-2" /> Auto Detect ({(ocrSettings.detectionModel || "doctr").toUpperCase()})
                           </>
                         )}
                       </Button>

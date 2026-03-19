@@ -10,3 +10,4 @@ python-multipart
 pytesseract
 opencv-python
 python-dotenv
+ultralytics
