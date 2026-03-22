@@ -844,7 +844,6 @@ const Annotate = () => {
                               </div>
                             </div>
                           </div>
-
                           {/* Actions */}
                           <div>
                             <h4 className="font-semibold text-gray-500 text-xs mb-1 mt-2">
