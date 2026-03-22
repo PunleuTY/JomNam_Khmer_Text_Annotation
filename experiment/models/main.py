@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from doctr.models import ocr_predictor
 from doctr.io import DocumentFile
@@ -513,20 +513,133 @@ def detect_and_extract(image: Image):
 @app.get("/")
 def read_root():
     return {"message": "Server is running"}
-        
-# === POST ===
-@app.post("/test-detect")
-def detect_text(image: Image):
-    doc = DocumentFile.from_images(image.path)
 
-    # Simulate a progress bar (just visual feedback)
-    print("Running OCR...")
-    for _ in tqdm(range(5), desc="Processing", ncols=100):
-        time.sleep(0.3)
 
-    # Run OCR
-    result = model(doc)
+# === POST: Extract text from uploaded image ===
+@app.post("/extract-text")
+async def extract_text_endpoint(
+    image: UploadFile = File(...),
+    model_name: str = Form("Tesseract"),
+    font: str = Form("Khmer"),
+):
+    """Accept an uploaded image, run DocTR detection + Tesseract OCR, return full text."""
+    start_time = time.time()
+    try:
+        # Read uploaded file into memory
+        contents = await image.read()
+        pil_img = PILImage.open(io.BytesIO(contents)).convert("RGB")
+        original_width, original_height = pil_img.size
+        print(f"[extract-text] Image: {image.filename}, size: {original_width}x{original_height}, model: {model_name}")
 
-    # Visualize the result
-    result.show()
+        # Save to a temp file for DocTR (it needs a file path)
+        import tempfile
+        suffix = os.path.splitext(image.filename or "img.jpg")[1] or ".jpg"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        try:
+            # Run DocTR detection
+            doc = DocumentFile.from_images(tmp_path)
+            image_shapes = [img.shape[:2] for img in doc]
+            result = model(doc)
+
+            # Convert to absolute boxes (line mode for full text extraction)
+            boxes = convert_to_absolute_boxes(result, image_shapes, original_width, original_height, "line")
+            print(f"[extract-text] Detected {len(boxes)} text regions")
+
+            # Extract text from each box using Tesseract
+            all_texts = []
+            for idx, box in enumerate(boxes):
+                box_coords = (
+                    box["x"],
+                    box["y"],
+                    box["x"] + box["width"],
+                    box["y"] + box["height"]
+                )
+                extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)
+                if extracted:
+                    all_texts.append(extracted)
+                    print(f"  Region {idx+1}: '{extracted}' (conf: {confidence:.2f})")
+
+            full_text = "\n".join(all_texts) if all_texts else ""
+            elapsed = (time.time() - start_time) * 1000  # ms
+            print(f"[extract-text] Done in {elapsed:.0f}ms, extracted {len(all_texts)} text lines")
+
+            return {
+                "success": True,
+                "text": full_text,
+                "inference_speed": round(elapsed, 2),
+                "regions": len(boxes),
+            }
+        finally:
+            os.unlink(tmp_path)
+
+    except Exception as e:
+        print(f"[extract-text] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "text": "",
+            "error": str(e),
+            "inference_speed": 0,
+        }
+
+
+# === POST: Evaluate extracted text against ground truth ===
+class EvaluateRequest(BaseModel):
+    extracted_text: str
+    ground_truth: str
+    model_name: str = "Tesseract"
+
+@app.post("/evaluate")
+def evaluate_endpoint(req: EvaluateRequest):
+    """Compute CER and WER between extracted text and ground truth."""
+    start_time = time.time()
+    try:
+        extracted = req.extracted_text
+        ground_truth = req.ground_truth
+
+        # Character Error Rate (CER)
+        cer = _edit_distance(list(extracted), list(ground_truth)) / max(len(ground_truth), 1)
+
+        # Word Error Rate (WER)
+        ext_words = extracted.split()
+        gt_words = ground_truth.split()
+        wer = _edit_distance(ext_words, gt_words) / max(len(gt_words), 1)
+
+        elapsed = (time.time() - start_time) * 1000
+        return {
+            "success": True,
+            "cer": round(min(cer, 1.0), 4),
+            "wer": round(min(wer, 1.0), 4),
+            "inference_speed": round(elapsed, 2),
+        }
+    except Exception as e:
+        print(f"[evaluate] Error: {e}")
+        return {"success": False, "cer": 0, "wer": 0, "inference_speed": 0, "error": str(e)}
+
+
+def _edit_distance(seq1, seq2) -> int:
+    """Compute Levenshtein edit distance between two sequences."""
+    m, n = len(seq1), len(seq2)
+    dp = list(range(n + 1))
+    for i in range(1, m + 1):
+        prev = dp[0]
+        dp[0] = i
+        for j in range(1, n + 1):
+            temp = dp[j]
+            if seq1[i - 1] == seq2[j - 1]:
+                dp[j] = prev
+            else:
+                dp[j] = 1 + min(prev, dp[j], dp[j - 1])
+            prev = temp
+    return dp[n]
+
+
+# ============= Run Server =============
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 

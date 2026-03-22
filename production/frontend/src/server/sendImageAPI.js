@@ -73,6 +73,42 @@ export const triggerOCR = async (imageId, boxes) => {
   }
 };
 
+// Trigger ML_V4 auto-detect for an image (DocTR detection + optional text extraction)
+export const triggerAutoDetect = async (imageId, { mode = "word", extractText = false, detectionModel = "doctr", recognitionModel = "tesseract" } = {}) => {
+  if (!imageId) return null;
+
+  const token = getAuthToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    const res = await apiRequest(`/images/${imageId}/auto-detect`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode,
+        extract_text: extractText,
+        detection_model: detectionModel,
+        recognition_model: recognitionModel,
+      }),
+      headers,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        success: false,
+        error: `Failed to auto-detect: ${text}`,
+        status: res.status,
+      };
+    }
+
+    const data = await res.json();
+    return { success: data.success !== false, data };
+  } catch (err) {
+    console.error("triggerAutoDetect error:", err);
+    return { success: false, error: err?.message || String(err) };
+  }
+};
+
 // Save ground truth annotations to backend
 export const saveGroundTruth = async (
   filename,

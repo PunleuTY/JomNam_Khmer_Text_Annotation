@@ -1,7 +1,7 @@
 "use client";
 // This file is part of the Open-Source project:
 // axios removed (unused)
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +34,7 @@ import { levenshteinSimilarity } from "@/lib/levenshtein";
 import { saveProject } from "@/lib/storage";
 import { ExportDialog } from "@/components/export-dialog";
 // import { CurrentProjectContext, ProjectContext } from "./Myproject";
-import { uploadImages, saveGroundTruth, triggerOCR } from "@/server/sendImageAPI";
+import { uploadImages, saveGroundTruth, triggerOCR, triggerAutoDetect } from "@/server/sendImageAPI";
 import CreateProjectForm from "@/components/CreateProjectForm";
 import { ImageUploader } from "@/components/image-uploader";
 import {
@@ -69,7 +69,6 @@ const Annotate = () => {
   const [activeTab, setActiveTab] = useState("annotation");
   const [lang] = useState("khm");
   const [exportOpen, setExportOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const historyIndexRef = useRef(-1);
@@ -80,6 +79,17 @@ const Annotate = () => {
   const [successMsg, setSuccessMsg] = useState("");
   const [project, setProject] = useState(null);
   const [projectLoading, setProjectLoading] = useState(false);
+  const [ocrSettingsOpen, setOcrSettingsOpen] = useState(false)
+  const [ocrSettings, setOcrSettings] = useState({
+    detectionEnabled: true,
+    recognitionEnabled: true,
+    annotationMode: "auto",
+    annotationOption: "annotate_extract",
+    detectionGranularity: "word",
+    detectionModel: "doctr",
+    recognitionModel: "tesseract",
+  });
+  const [autoDetectLoading, setAutoDetectLoading] = useState(false);
   const [_batchInfo, setBatchInfo] = useState({
     running: false,
     current: 0,
@@ -306,6 +316,90 @@ const Annotate = () => {
     }
   };
 
+  // --- Auto-Detect using ML_V4 (DocTR) ---
+  const runAutoDetect = async () => {
+    if (!currentId) return;
+    const currentImg = images.find((i) => i.id === currentId);
+    if (!currentImg) return;
+
+    setAutoDetectLoading(true);
+    try {
+      const extractText = ocrSettings.annotationOption === "annotate_extract";
+      const mode = ocrSettings.detectionGranularity || "word";
+
+      const res = await triggerAutoDetect(currentId, {
+        mode,
+        extractText,
+        detectionModel: ocrSettings.detectionModel || "doctr",
+        recognitionModel: ocrSettings.recognitionModel || "tesseract",
+      });
+
+      if (!res || !res.success) {
+        console.error("Auto-detect failed:", res?.error);
+        setSuccessMsg("Auto-detect failed!");
+        setTimeout(() => setSuccessMsg(""), 2000);
+        return;
+      }
+
+      const data = res.data || {};
+      const detectedBoxes = data.boxes || [];
+      console.log("Auto-detect result:", data);
+
+      if (detectedBoxes.length === 0) {
+        setSuccessMsg("No text regions detected.");
+        setTimeout(() => setSuccessMsg(""), 2000);
+        return;
+      }
+
+      // Convert ML_V4 boxes to annotation format and merge with existing
+      const existingAnns = annotations[currentId] || [];
+      const newAnns = detectedBoxes.map((box) => ({
+        id: `a_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type: "box",
+        rect: {
+          x: box.x,
+          y: box.y,
+          w: box.width,
+          h: box.height,
+        },
+        text: box.text || "",
+        gt: "",
+        accuracy: null,
+        label: "",
+        confidence: box.confidence || 0,
+        source: `auto-detect-${ocrSettings.detectionModel || "doctr"}`,
+      }));
+
+      const merged = [...existingAnns, ...newAnns];
+      setAnnotations((prev) => ({
+        ...prev,
+        [currentId]: merged,
+      }));
+
+      const modelLabel = (ocrSettings.detectionModel || "doctr").toUpperCase();
+      setSuccessMsg(`${modelLabel}: Detected ${detectedBoxes.length} text regions!`);
+      setTimeout(() => setSuccessMsg(""), 2000);
+
+      // Save auto-detected annotations
+      try {
+        await saveGroundTruth(
+          currentImg.name,
+          CurrentProjectContext,
+          currentId,
+          merged,
+        );
+      } catch (err) {
+        console.error("Failed to save auto-detect results:", err);
+      }
+    } catch (err) {
+      console.error("Auto-detect error:", err);
+      setSuccessMsg("Auto-detect error!");
+      setTimeout(() => setSuccessMsg(""), 2000);
+    } finally {
+      setAutoDetectLoading(false);
+    }
+  };
+
   // --- Autosave ---
   useEffect(() => {
     saveProject({ images, annotations, currentId, lang });
@@ -329,10 +423,33 @@ const Annotate = () => {
         if (!uploadRes || !uploadRes.success) {
           console.warn("Failed to upload images:", uploadRes?.error);
         }
+
+        // Reload images from database to get proper MongoDB IDs
+        const imagesRes = await getImageByProjectAPI(id);
+        if (imagesRes && imagesRes.success) {
+          const data = imagesRes.data || [];
+          const processedImages = data.map((img) => ({
+            ...img,
+            url: img.url || img.base64,
+          }));
+
+          const anns = processedImages.reduce((acc, img) => {
+            return { ...acc, ...convertAnnotations(img) };
+          }, {});
+
+          setAnnotations((prev) => ({ ...prev, ...anns }));
+          setImages(processedImages);
+
+          if (!currentId && processedImages.length > 0) {
+            setCurrentId(processedImages[0].id);
+          }
+          return;
+        }
       } catch (err) {
         console.error("Failed to upload images:", err);
       }
     }
+    // Fallback: if upload/reload failed, use client-side items
     const updated = [...images, ...items];
     setImages(updated);
     if (!currentId && updated.length > 0) {
@@ -727,7 +844,6 @@ const Annotate = () => {
                               </div>
                             </div>
                           </div>
-
                           {/* Actions */}
                           <div>
                             <h4 className="font-semibold text-gray-500 text-xs mb-1 mt-2">
@@ -849,7 +965,7 @@ const Annotate = () => {
                     >
                       <PenTool className="w-4 h-4" /> Edit
                     </Button>
-                    <Button
+                    {/* <Button
                       variant="outline"
                       size="sm"
                       onClick={runOcr}
@@ -864,7 +980,44 @@ const Annotate = () => {
                           <ScanText className="w-4 h-4 mr-2" /> OCR Entire
                         </>
                       )}
-                    </Button>
+                    </Button> */}
+                    {ocrSettings.annotationOption === "Extracted_only" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={runOcr}
+                        disabled={ocrLoading || !currentId || !(annotations[currentId]?.length)}
+                        className="bg-[#F88F2D] text-white hover:bg-[#E67D1B]"
+                      >
+                        {ocrLoading ? (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2 animate-spin" /> Extracting...
+                          </>
+                        ) : (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2" /> Extract Text
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={runAutoDetect}
+                        disabled={autoDetectLoading || !currentId}
+                        className="bg-[#F88F2D] text-white hover:bg-[#E67D1B]"
+                      >
+                        {autoDetectLoading ? (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2 animate-spin" /> Detecting...
+                          </>
+                        ) : (
+                          <>
+                            <ScanText className="w-4 h-4 mr-2" /> Auto Detect ({(ocrSettings.detectionModel || "doctr").toUpperCase()})
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -975,6 +1128,8 @@ const Annotate = () => {
           <MultiOCRoption
             open={ocrSettingsOpen}
             onOpenChange={setOcrSettingsOpen}
+            settings={ocrSettings}
+            onApply={(config) => setOcrSettings(config)}
           />
           <GalleryView
             open={galleryOpen}

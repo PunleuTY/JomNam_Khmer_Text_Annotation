@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-const CLIENT_ID = "904470385009-kq9nevcsb7kse1nmfnnjkpdufvg3h10m.apps.googleusercontent.com";
-const API_KEY = "AIzaSyDmV1USf7ifBtVwUlAHAi6N2koystwBuoQ";
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || "";
 const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
 
 export function ImageUploader({ onFiles }) {
@@ -16,40 +16,34 @@ export function ImageUploader({ onFiles }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const [accessToken, setAccessToken] = useState(null);
+  const accessTokenRef = useRef(null);
   const [pickerApiLoaded, setPickerApiLoaded] = useState(false);
   const [status, setStatus] = useState({ message: '', type: '' });
 
   // Load Google APIs on mount
   useEffect(() => {
-    const loadGoogleAPIs = () => {
-      // Load GSI client
-      const gsiScript = document.createElement('script');
-      gsiScript.src = 'https://accounts.google.com/gsi/client';
-      gsiScript.async = true;
-      document.body.appendChild(gsiScript);
+    const gsiScript = document.createElement('script');
+    gsiScript.src = 'https://accounts.google.com/gsi/client';
+    gsiScript.async = true;
+    document.body.appendChild(gsiScript);
 
-      // Load GAPI
-      const gapiScript = document.createElement('script');
-      gapiScript.src = 'https://apis.google.com/js/api.js';
-      gapiScript.async = true;
-      gapiScript.onload = () => {
-        window.gapi.load('picker', {
-          callback: () => {
-            setPickerApiLoaded(true);
-            console.log('Picker API loaded');
-          }
-        });
-      };
-      document.body.appendChild(gapiScript);
-
-      return () => {
-        document.body.removeChild(gsiScript);
-        document.body.removeChild(gapiScript);
-      };
+    const gapiScript = document.createElement('script');
+    gapiScript.src = 'https://apis.google.com/js/api.js';
+    gapiScript.async = true;
+    gapiScript.onload = () => {
+      window.gapi.load('picker', {
+        callback: () => {
+          setPickerApiLoaded(true);
+          console.log('Picker API loaded');
+        }
+      });
     };
+    document.body.appendChild(gapiScript);
 
-    loadGoogleAPIs();
+    return () => {
+      if (gsiScript.parentNode) document.body.removeChild(gsiScript);
+      if (gapiScript.parentNode) document.body.removeChild(gapiScript);
+    };
   }, []);
 
   useEffect(() => {
@@ -57,6 +51,10 @@ export function ImageUploader({ onFiles }) {
   }, [status])
 
   const authenticate = () => {
+    if (!CLIENT_ID || !API_KEY) {
+      showStatus('Google Drive is not configured. Set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_API_KEY.', 'error');
+      return;
+    }
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
@@ -65,17 +63,19 @@ export function ImageUploader({ onFiles }) {
           showStatus('Login failed: ' + response.error, 'error');
           return;
         }
-        setAccessToken(response.access_token);
+        const token = response.access_token;
+        accessTokenRef.current = token;
         showStatus('Login successful!', 'success');
-        setIsDialogOpen(false)
-        openPicker();
+        setIsDialogOpen(false);
+        openPicker(token);
       },
     });
     tokenClient.requestAccessToken();
   };
 
-  const openPicker = () => {
-    if (!accessToken) {
+  const openPicker = (token) => {
+    const currentToken = token || accessTokenRef.current;
+    if (!currentToken) {
       showStatus('Please login first', 'error');
       return;
     }
@@ -90,7 +90,8 @@ export function ImageUploader({ onFiles }) {
       .addView(new window.google.picker.DocsView()
         .setIncludeFolders(true)
         .setMimeTypes('image/png,image/jpeg,image/jpg,image/gif'))
-      .setOAuthToken(accessToken)
+      .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
+      .setOAuthToken(currentToken)
       .setDeveloperKey(API_KEY)
       .setCallback(pickerCallback)
       .build();
@@ -100,42 +101,43 @@ export function ImageUploader({ onFiles }) {
 
   const pickerCallback = async (data) => {
     if (data.action === window.google.picker.Action.PICKED) {
-      const file = data.docs[0];
-      console.log("File selected:", file);
-      await saveImageToStorage(file);
+      const docs = data.docs || [];
+      console.log("Files selected:", docs);
+      const files = [];
+      for (const doc of docs) {
+        try {
+          const fileObj = await downloadDriveFile(doc);
+          if (fileObj) files.push(fileObj);
+        } catch (err) {
+          console.error(`Failed to download ${doc.name}:`, err);
+          showStatus(`Failed to download ${doc.name}`, 'error');
+        }
+      }
+      if (files.length > 0) {
+        await processFiles(files);
+        showStatus(`Imported ${files.length} image(s) from Google Drive`, 'success');
+      }
     } else if (data.action === window.google.picker.Action.CANCEL) {
       showStatus('Picker cancelled', 'error');
     }
   };
 
-  const saveImageToStorage = async (file) => {
-    try {
-      showStatus(`Downloading ${file.name}...`, 'success');
+  const downloadDriveFile = async (doc) => {
+    const currentToken = accessTokenRef.current;
+    showStatus(`Downloading ${doc.name}...`, 'success');
 
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(doc.id)}?alt=media`,
+      { headers: { 'Authorization': `Bearer ${currentToken}` } }
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to download file');
-      }
-
-      const blob = await response.blob();
-      const fileObj = new File([blob], file.name, { type: file.mimeType });
-
-      // Create a fake event to mimic handleFileChange
-      const fakeEvent = { target: { files: [fileObj] } };
-      await handleFileChange(fakeEvent);
-
-      showStatus(`${file.name} saved successfully!`, 'success');
-    } catch (error) {
-      console.error('Save error:', error);
-      showStatus(`Failed to save ${file.name}: ${error.message}`, 'error');
-      throw error;
+    if (!response.ok) {
+      throw new Error(`Failed to download ${doc.name} (${response.status})`);
     }
-  }
+
+    const blob = await response.blob();
+    return new File([blob], doc.name, { type: doc.mimeType || 'image/jpeg' });
+  };
 
   const showStatus = (message, type) => {
     setStatus({ message, type });
@@ -313,7 +315,7 @@ export function ImageUploader({ onFiles }) {
               <Cloud className="w-6 h-6 mr-3 text-green-600" />
               <div className="text-left">
                 <div className="font-medium">From Google Drive</div>
-                <div className="text-sm text-gray-500">Coming soon</div>
+                <div className="text-sm text-gray-500">Select images from your Drive</div>
               </div>
             </Button>
           </div>

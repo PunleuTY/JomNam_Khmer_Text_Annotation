@@ -48,8 +48,8 @@ export function AnnotationList({
   const cancelRef = React.useRef({ cancel: false });
 
   // ── New state for model / text-type selectors ──
-  const [selectedModel, setSelectedModel] = React.useState(OCR_MODELS[0].value);
-  const [selectedTextType, setSelectedTextType] = React.useState(TEXT_TYPES[0].value);
+  // const [selectedModel, setSelectedModel] = React.useState(OCR_MODELS[0].value);
+  // const [selectedTextType, setSelectedTextType] = React.useState(TEXT_TYPES[0].value);
   // const runOcr = async (annId) => {
   //   if (!image) return
   //   try {
@@ -119,59 +119,6 @@ export function AnnotationList({
               </Button>
             </>
           )}
-          {/* ── Model selector ── */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-              {t("Model")}
-            </label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={busy}
-              className="text-xs font-semibold text-[#12284c] bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 pr-6 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#12284c]/20 focus:border-[#12284c] disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "right 6px center",
-              }}
-            >
-              {OCR_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* ── Text type selector ── */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-              {t("Text Type")}
-            </label>
-            <select
-              value={selectedTextType}
-              onChange={(e) => setSelectedTextType(e.target.value)}
-              disabled={busy}
-              className="text-xs font-semibold text-[#12284c] bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 pr-6 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#12284c]/20 focus:border-[#12284c] disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "right 6px center",
-              }}
-            >
-              {TEXT_TYPES.map((tt) => (
-                <option key={tt.value} value={tt.value}>{tt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runOcr}
-            disabled={!annotations.length || busy}
-          >
-            <Play className="w-4 h-4 mr-2" />
-            {t("Run Ocr")}
-          </Button>
 
         </div>
       </CardHeader>

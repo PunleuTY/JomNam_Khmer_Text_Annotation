@@ -10,7 +10,7 @@ print("Model loaded successfully.")
 
 # Load local image
 print("Reading image...")
-doc = DocumentFile.from_images("experiment/models/images/demo_scene_text.jpeg")
+doc = DocumentFile.from_images("images/demo_scene_text.jpeg")
 
 # Simulate a progress bar (just visual feedback)
 print("Running OCR...")
