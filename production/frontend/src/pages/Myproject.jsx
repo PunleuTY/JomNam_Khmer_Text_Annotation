@@ -60,6 +60,11 @@ export default function WorkspacePage() {
     status: "not-started",
   });
   const [editing, setEditing] = useState(false);
+  // Status change state
+  const [statusChangeModalOpen, setStatusChangeModalOpen] = useState(false);
+  const [projectForStatusChange, setProjectForStatusChange] = useState(null);
+  const [newStatus, setNewStatus] = useState("");
+  const [changingStatus, setChangingStatus] = useState(false);
   const STORAGE_KEY = "selectedProjectId";
 
   useEffect(() => {
@@ -242,6 +247,61 @@ export default function WorkspacePage() {
     setSelectedProject(project);
     setDeleteModalOpen(true);
   };
+
+  // Handle status change: open status change modal
+  const handleQuickStatusChange = (project) => {
+    if (!project) return;
+    setProjectForStatusChange(project);
+    setNewStatus(project.status || "not-started");
+    setStatusChangeModalOpen(true);
+  };
+
+  // Confirm status change
+  async function confirmStatusChange() {
+    if (!projectForStatusChange || !newStatus) return;
+    setChangingStatus(true);
+    try {
+      const response = await editProjectAPI(
+        projectForStatusChange.id || projectForStatusChange._id,
+        {
+          status: newStatus,
+          name: projectForStatusChange.name,
+          description: projectForStatusChange.description,
+        },
+      );
+
+      if (response && response.success) {
+        // Update the project in the list
+        setProjects((prev) =>
+          prev.map((p) =>
+            (p.id || p._id) === (projectForStatusChange.id || projectForStatusChange._id)
+              ? { ...p, status: newStatus }
+              : p,
+          ),
+        );
+        toast.success(
+          `Project status updated to ${newStatus.replace("-", " ")}!`,
+        );
+        setStatusChangeModalOpen(false);
+        setProjectForStatusChange(null);
+        setNewStatus("");
+      } else {
+        console.error("Failed to update status", response);
+        toast.error(response?.error || "Failed to update status");
+      }
+    } catch (err) {
+      console.error("Error updating status", err);
+      toast.error("Error updating status");
+    } finally {
+      setChangingStatus(false);
+    }
+  }
+
+  function cancelStatusChange() {
+    setStatusChangeModalOpen(false);
+    setProjectForStatusChange(null);
+    setNewStatus("");
+  }
 
   // Save edited project
   const handleSaveEdit = async () => {
@@ -477,6 +537,7 @@ export default function WorkspacePage() {
                   project={project}
                   onEdit={handleEditProject}
                   onDelete={handleDeleteProject}
+                  onQuickStatusChange={handleQuickStatusChange}
                 />
               ))
             ) : (
@@ -615,6 +676,66 @@ export default function WorkspacePage() {
                     disabled={editing}
                   >
                     {editing ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Status Change Modal */}
+          {statusChangeModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div
+                className="absolute inset-0 bg-black opacity-40"
+                onClick={cancelStatusChange}
+              />
+              <div className="bg-white rounded-lg shadow-xl z-10 w-full max-w-md p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#F88F2D]" />
+                  Update Project Status
+                </h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Project: <span className="font-semibold">{projectForStatusChange?.name}</span>
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Select New Status
+                  </label>
+                  <div className="space-y-3">
+                    {[
+                      { value: "not-started", label: "Not Started", color: "bg-gray-100 border-gray-300 hover:bg-gray-200" },
+                      { value: "in-progress", label: "In Progress", color: "bg-orange-100 border-orange-300 hover:bg-orange-200" },
+                      { value: "completed", label: "Completed", color: "bg-emerald-100 border-emerald-300 hover:bg-emerald-200" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setNewStatus(option.value)}
+                        disabled={changingStatus}
+                        className={`w-full p-3 rounded-lg border-2 font-medium transition-all ${
+                          newStatus === option.value
+                            ? `${option.color} border-2 border-blue-500 ring-2 ring-blue-200`
+                            : `${option.color} border-2`
+                        } ${changingStatus ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={cancelStatusChange}
+                    disabled={changingStatus}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-[#F88F2D] hover:bg-orange-600 text-white"
+                    onClick={confirmStatusChange}
+                    disabled={changingStatus || newStatus === projectForStatusChange?.status}
+                  >
+                    {changingStatus ? "Updating..." : "Update Status"}
                   </Button>
                 </div>
               </div>
@@ -774,7 +895,7 @@ function StatCard({ icon, label, value, color, sub }) {
   );
 }
 
-function ProjectCard({ project, onEdit, onDelete }) {
+function ProjectCard({ project, onEdit, onDelete, onQuickStatusChange }) {
   const [totalStats, setTotalStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -823,13 +944,15 @@ function ProjectCard({ project, onEdit, onDelete }) {
           <p className="text-gray-600 text-sm">{project.description}</p>
         </div>
         <div className="flex items-center gap-2 ml-4">
-          <Badge
+          <button
+            onClick={() => onQuickStatusChange(project)}
             className={`${
               statusColors[project.status]
-            } border px-3 py-1 text-sm font-medium`}
+            } border px-3 py-1 text-sm font-medium rounded cursor-pointer hover:shadow-md transition-all hover:scale-105 active:scale-95`}
+            title="Click to change status"
           >
             {project.status.replace("-", " ").toUpperCase()}
-          </Badge>
+          </button>
           <Button
             variant="outline"
             size="sm"
