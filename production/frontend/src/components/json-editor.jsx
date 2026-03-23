@@ -273,7 +273,7 @@ export function JsonEditor({
                 </Badge>
               )}
             </div>
-            <Button
+            {/* <Button
               variant="outline"
               size="sm"
               onClick={runOcr}
@@ -281,7 +281,7 @@ export function JsonEditor({
             >
               <Play className="w-4 h-4 mr-2" />
               {t("Run Ocr")}
-            </Button>
+            </Button> */}
             <Button 
               variant="outline" 
               size="sm" 
