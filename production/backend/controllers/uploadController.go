@@ -364,7 +364,8 @@ func TriggerOCR(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client
 
 		// Read annotations from request body (allow generic JSON)
 		var body struct {
-			Annotations interface{} `json:"annotations"`
+			Annotations      interface{} `json:"annotations"`
+			RecognitionModel string      `json:"recognition_model"`
 		}
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
@@ -408,6 +409,10 @@ func TriggerOCR(imageCollection *mongo.Collection, r2Client *cloudflare.R2Client
 		annsJson, _ := json.Marshal(body.Annotations)
 		_ = writer.WriteField("annotations", string(annsJson))
 		_ = writer.WriteField("project_id", img.ProjectID.Hex())
+		if body.RecognitionModel == "" {
+			body.RecognitionModel = "tesseract"
+		}
+		_ = writer.WriteField("recognition_model", body.RecognitionModel)
 		writer.Close()
 
 		req, err := http.NewRequest("POST", mlURL, bodyBuf)

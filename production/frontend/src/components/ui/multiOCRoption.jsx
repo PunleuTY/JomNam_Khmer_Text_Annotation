@@ -214,6 +214,7 @@ export default function MultiOCRoption({ open, onOpenChange, onApply, settings }
                     options={[
                       { value: "tesseract", label: "Tesseract" },
                       { value: "kiriocr",   label: "KiriOCR" },
+                      { value: "gemini",    label: "Google Gemini" },
                     ]}
                     selected={recognitionModel}
                     onChange={setRecognitionModel}

@@ -157,8 +157,8 @@ export default function WorkspacePage() {
     totalAnnotated: projects.reduce((sum, p) => sum + p.annotatedCount, 0),
   };
 
-  // const handleCreateProject = (newProject) => {
   //   setProjects([newProject, ...projects]);}
+  // const handleCreateProject = (newProject) => {
 
   // const completionRate = Math.round(
   //   (stats.totalAnnotated / stats.totalImages) * 100

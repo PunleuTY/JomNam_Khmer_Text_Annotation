@@ -17,6 +17,7 @@ import cv2
 # Add utils directory to path for YOLO import
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 from YoloKh.YoloModel import YOLODetector
+from GeminiOCR import GeminiOCR, extract_text_gemini
 
 # KiriOCR for Khmer text recognition
 try:
@@ -124,6 +125,21 @@ try:
 except Exception as e:
     print(f"Failed to load YOLO model: {e}")
     yolo_model = None
+
+# ---- Initialize Gemini Vision API ----
+gemini_model = None
+try:
+    print("Initializing Gemini Vision API...")
+    gemini_model = GeminiOCR()
+    health = gemini_model.health_check()
+    if health.get("status") == "healthy":
+        print("✓ Gemini Vision API initialized successfully")
+    else:
+        print(f"⚠ Gemini API issue: {health.get('error', 'Unknown error')}")
+        gemini_model = None
+except Exception as e:
+    print(f"Failed to initialize Gemini: {e}")
+    gemini_model = None
 
 # ============= Helper Functions =============
 def run_yolo_detection(image_path: str, mode: str = "word") -> List[Dict[str, Any]]:
@@ -254,6 +270,45 @@ def extract_text_with_kiriocr(pil_image, box_coords):
     except Exception as e:
         print(f"KiriOCR error: {e}")
         return "", 0.0
+
+
+def extract_text_with_gemini(pil_image, box_coords):
+    """Extract text from a cropped image region using Gemini Vision API.
+
+    Args:
+        pil_image: PIL Image object (full image)
+        box_coords: Tuple of (x1, y1, x2, y2) coordinates
+
+    Returns:
+        Tuple of (extracted_text, confidence)
+    """
+    if gemini_model is None:
+        print("  [Gemini] Model not initialized, falling back to Tesseract")
+        return extract_text_with_tesseract(pil_image, box_coords)
+
+    x1, y1, x2, y2 = box_coords
+
+    # Validate coordinates
+    img_width, img_height = pil_image.size
+    x1 = max(0, min(x1, img_width))
+    y1 = max(0, min(y1, img_height))
+    x2 = max(0, min(x2, img_width))
+    y2 = max(0, min(y2, img_height))
+
+    if x2 <= x1 or y2 <= y1:
+        return "", 0.0
+
+    cropped = pil_image.crop((x1, y1, x2, y2))
+    if cropped.size[0] < 8 or cropped.size[1] < 8:
+        return "", 0.0
+
+    try:
+        text, confidence = gemini_model.extract_text_from_pil_image(cropped)
+        text = text.strip() if text else ""
+        return text, confidence
+    except Exception as e:
+        print(f"Gemini OCR error: {e}, falling back to Tesseract")
+        return extract_text_with_tesseract(pil_image, box_coords)
 
 
 def convert_to_absolute_boxes(result, image_shapes: list, original_width: int, original_height: int, detection_mode: str = "word") -> List[Dict[str, Any]]:
@@ -709,8 +764,12 @@ async def ocr_endpoint(
         print(f"[ocr] Image: {image.filename}, size: {original_width}x{original_height}, boxes: {len(boxes)}, model: {recognition_model}")
 
         use_kiriocr = recognition_model == "kiriocr" and kiri_model is not None
+        use_gemini = recognition_model == "gemini" and gemini_model is not None
+        
         if recognition_model == "kiriocr" and kiri_model is None:
             print("[ocr] KiriOCR requested but not available, falling back to Tesseract")
+        if recognition_model == "gemini" and gemini_model is None:
+            print("[ocr] Gemini requested but not available, falling back to Tesseract")
 
         processing_result = []
         for idx, box in enumerate(boxes):
@@ -730,7 +789,9 @@ async def ocr_endpoint(
                 continue
 
             box_coords = (x1, y1, x2, y2)
-            if use_kiriocr:
+            if use_gemini:
+                extracted, confidence = extract_text_with_gemini(pil_img, box_coords)
+            elif use_kiriocr:
                 extracted, confidence = extract_text_with_kiriocr(pil_img, box_coords)
             else:
                 extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)
@@ -886,10 +947,19 @@ async def auto_detect(
             # Recognition phase
             if extract_text:
                 use_kiriocr = recognition_model == "kiriocr" and kiri_model is not None
-                engine_name = "KiriOCR" if use_kiriocr else "Tesseract"
+                use_gemini = recognition_model == "gemini" and gemini_model is not None
+                
+                if use_gemini:
+                    engine_name = "Gemini Vision API"
+                elif use_kiriocr:
+                    engine_name = "KiriOCR"
+                else:
+                    engine_name = "Tesseract"
 
                 if recognition_model == "kiriocr" and kiri_model is None:
                     print("[auto-detect] KiriOCR requested but not available, falling back to Tesseract")
+                if recognition_model == "gemini" and gemini_model is None:
+                    print("[auto-detect] Gemini requested but not available, falling back to Tesseract")
 
                 print(f"[auto-detect] Extracting text from {len(boxes)} boxes using {engine_name}...")
                 for idx, box in enumerate(boxes):
@@ -899,7 +969,9 @@ async def auto_detect(
                         box["x"] + box["width"],
                         box["y"] + box["height"]
                     )
-                    if use_kiriocr:
+                    if use_gemini:
+                        extracted, confidence = extract_text_with_gemini(pil_img, box_coords)
+                    elif use_kiriocr:
                         extracted, confidence = extract_text_with_kiriocr(pil_img, box_coords)
                     else:
                         extracted, confidence = extract_text_with_tesseract(pil_img, box_coords)

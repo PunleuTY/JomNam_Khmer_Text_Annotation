@@ -43,7 +43,7 @@ export const uploadImages = async (projectId, files, annotations) => {
 };
 
 // Trigger OCR for an existing image by calling the backend OCR endpoint
-export const triggerOCR = async (imageId, boxes) => {
+export const triggerOCR = async (imageId, boxes, { recognitionModel = "tesseract" } = {}) => {
   if (!imageId) return null;
 
   const token = getAuthToken();
@@ -52,7 +52,7 @@ export const triggerOCR = async (imageId, boxes) => {
   try {
     const res = await apiRequest(`/images/${imageId}/ocr`, {
       method: "POST",
-      body: JSON.stringify({ annotations: boxes }),
+      body: JSON.stringify({ annotations: boxes, recognition_model: recognitionModel }),
       headers,
     });
 
