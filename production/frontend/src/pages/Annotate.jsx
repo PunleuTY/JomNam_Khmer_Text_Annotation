@@ -270,7 +270,7 @@ const Annotate = () => {
       });
 
       // Call the OCR endpoint on the backend
-      const ocrRes = await triggerOCR(currentId, boxes);
+      const ocrRes = await triggerOCR(currentId, boxes, { recognitionModel: ocrSettings.recognitionModel || "tesseract" });
 
       if (!ocrRes || !ocrRes.success) {
         console.error("OCR failed:", ocrRes?.error);
